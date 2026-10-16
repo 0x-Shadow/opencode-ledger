@@ -18,16 +18,23 @@ DEFAULT_OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 def parse_message(data):
     """Parse an assistant message's data JSON. Returns None if malformed
-    or missing the model/tokens keys we aggregate on."""
+    or missing/mistyped the keys we aggregate on."""
     try:
         d = json.loads(data)
     except (json.JSONDecodeError, TypeError):
         return None
     if not isinstance(d, dict):
         return None
-    if "tokens" not in d or "model" not in d:
+    tokens = d.get("tokens")
+    model = d.get("model")
+    if not isinstance(tokens, dict) or not isinstance(model, dict):
         return None
-    if not isinstance(d["tokens"], dict):
+    for k in ("input", "output", "reasoning"):
+        if not isinstance(tokens.get(k), (int, float)):
+            return None
+    cache = tokens.get("cache")
+    if not isinstance(cache, dict) or not isinstance(cache.get("read"), (int, float)) \
+            or not isinstance(cache.get("write"), (int, float)):
         return None
     return d
 
@@ -183,8 +190,11 @@ def load_session_meta(conn):
 def main(db_path=DEFAULT_DB, out_path=DEFAULT_OUT):
     if not os.path.exists(db_path):
         sys.exit(f"error: database not found: {db_path}")
-    uri = f"file:{db_path}?immutable=1"
+    # mode=ro (not immutable=1) so committed WAL data is visible while
+    # OpenCode is running; busy_timeout guards against write locks.
+    uri = f"file:{db_path}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
+    conn.execute("PRAGMA busy_timeout=3000")
     try:
         session_meta = load_session_meta(conn)
         raw_rows = conn.execute(

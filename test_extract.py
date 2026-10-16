@@ -48,6 +48,32 @@ class ParseMessageTests(unittest.TestCase):
     def test_parse_message_malformed(self):
         self.assertIsNone(extract.parse_message("not json{"))
 
+    def test_parse_message_nested_null_tokens(self):
+        row = make_row(inp=10)
+        row["tokens"]["reasoning"] = None
+        row["tokens"]["cache"] = None
+        self.assertIsNone(extract.parse_message(json.dumps(row)))
+
+    def test_parse_message_model_not_dict(self):
+        row = make_row()
+        row["model"] = "just-a-string"
+        self.assertIsNone(extract.parse_message(json.dumps(row)))
+
+    def test_parse_message_cache_not_dict(self):
+        row = make_row()
+        row["tokens"]["cache"] = [1, 2]
+        self.assertIsNone(extract.parse_message(json.dumps(row)))
+
+    def test_aggregate_skips_bad_nested_rows(self):
+        bad = make_row(inp=100)
+        bad["tokens"]["reasoning"] = None
+        rows = [make_row(inp=10), bad, make_row(inp=20)]
+        rows[2]["model"] = "oops"
+        good = [r for r in rows if extract.parse_message(json.dumps(r))]
+        stats = extract.aggregate(good, session_meta={})
+        self.assertEqual(stats["totals"]["messages"], 1)
+        self.assertEqual(stats["totals"]["input"], 10)
+
 
 class AggregateTests(unittest.TestCase):
     def test_aggregate_totals(self):
@@ -138,20 +164,36 @@ class IntegrationTests(unittest.TestCase):
         self.assertGreaterEqual(stats["days_active"], 1)
         # internal consistency: totals.all == sum of by_model tokens
         self.assertEqual(t["all"], sum(m["tokens"] for m in stats["by_model"]))
-        # cross-check against SQL over session_v2 (session-level totals)
-        conn = sqlite3.connect(f"file:{DB_PATH}?immutable=1", uri=True)
+        # cross-check against JSON1 over session_message (message-level truth)
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
         row = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(json_extract(data,'$.tokens.input')"
+            "+json_extract(data,'$.tokens.output')"
+            "+json_extract(data,'$.tokens.reasoning')"
+            "+json_extract(data,'$.tokens.cache.read')"
+            "+json_extract(data,'$.tokens.cache.write')),0)"
+            " FROM session_message WHERE type='assistant'"
+            " AND json_valid(data) AND json_extract(data,'$.tokens.input') IS NOT NULL"
+        ).fetchone()
+        conn.close()
+        sql_total, sql_count = row[1], row[0]
+        # two-sided tolerance: catches both undercount and double-count
+        self.assertAlmostEqual(t["all"], sql_total, delta=sql_total * 0.01,
+                               msg=f"messages {t['all']} vs json_extract {sql_total}")
+        self.assertAlmostEqual(t["messages"], sql_count, delta=max(2, sql_count * 0.01),
+                               msg=f"parsed {t['messages']} vs json_extract {sql_count}")
+        # and still sane vs session-level rollups (both directions)
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        srow = conn.execute(
             "SELECT SUM(tokens_input+tokens_output+tokens_reasoning"
             "+tokens_cache_read+tokens_cache_write) FROM session_v2"
         ).fetchone()
         conn.close()
-        sql_total = row[0] or 0
-        # message-level total should be >= session-level rollups and within 5%
-        # (session totals may lag or miss subagent messages)
-        self.assertGreaterEqual(t["all"], sql_total * 0.95,
-                                f"messages {t['all']} vs session_v2 {sql_total}")
-        print(f"cross-check: messages_total={t['all']} "
-              f"session_v2_total={sql_total} skipped={stats['skipped_rows']}")
+        sql_session_total = srow[0] or 0
+        self.assertAlmostEqual(t["all"], sql_session_total, delta=sql_session_total * 0.05,
+                               msg=f"messages {t['all']} vs session_v2 {sql_session_total}")
+        print(f"cross-check: messages_total={t['all']} json_extract={sql_total} "
+              f"session_v2={sql_session_total} skipped={stats['skipped_rows']}")
 
 
 if __name__ == "__main__":
