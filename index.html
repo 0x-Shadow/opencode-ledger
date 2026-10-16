@@ -69,6 +69,23 @@ header.site {
 }
 .wordmark b { color: var(--accent); font-weight: 700; }
 .meta { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); }
+.header-right { display: flex; align-items: center; gap: var(--space-2xs); }
+
+/* LIVE badge */
+.live-badge {
+  display: inline-flex; align-items: center; gap: var(--space-3xs);
+  font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.14em; color: var(--accent);
+  border: 1px solid var(--accent); padding: 0 var(--space-2xs);
+}
+.live-badge .dot {
+  width: 0.5rem; height: 0.5rem; background: var(--accent);
+  animation: pulse 2s var(--ease) infinite;
+}
+.live-badge.offline { color: var(--ink-3); border-color: var(--ink-3); }
+.live-badge.offline .dot { background: var(--ink-3); animation: none; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .live-badge .dot { animation: none; } }
 
 /* HERO ODOMETER */
 .hero { padding: var(--space-2xl) 0 var(--space-xl); text-align: center; }
@@ -191,8 +208,11 @@ footer.site p { font-family: var(--font-mono); font-size: var(--step--1); color:
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site">
   <div class="wrap site-row">
-    <p class="wordmark"><b>■</b> OpenCode · Lifetime Token Ledger</p>
-    <p class="meta" id="generated">loading…</p>
+    <p class="wordmark"><b aria-hidden="true">■</b> OpenCode · Lifetime Token Ledger</p>
+    <p class="header-right">
+      <span id="live-badge" class="live-badge" hidden><span class="dot" aria-hidden="true"></span>LIVE</span>
+      <span class="meta" id="generated">loading…</span>
+    </p>
   </div>
 </header>
 
@@ -301,22 +321,24 @@ function fmtDate(iso) {
 }
 
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let lastTotal = 0;
 
-function odometer(total) {
+function odometer(total, animate = true) {
   const el = $("odometer");
   const render = (n) => {
     el.innerHTML = exact(Math.round(n)).replace(/,/g, '<span class="comma">,</span>');
   };
   $("odometer-sr").textContent = `Total lifetime tokens: ${exact(total)}`;
-  if (REDUCED) { render(total); return; }
-  const dur = 1600, t0 = performance.now();
+  if (REDUCED || !animate) { render(total); lastTotal = total; return; }
+  const from = lastTotal, dur = 1600, t0 = performance.now();
   const ease = (t) => 1 - Math.pow(1 - t, 4);
   function frame(t) {
     const p = Math.min((t - t0) / dur, 1);
-    render(total * ease(p));
+    render(from + (total - from) * ease(p));
     if (p < 1) requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+  lastTotal = total;
 }
 
 function equivalence(total) {
@@ -366,7 +388,7 @@ function shareRow(r, total, withProvider) {
     : share;
 }
 
-function render(s) {
+function render(s, animate = false) {
   const t = s.totals;
   $("generated").textContent = `data as of ${fmtDate(s.generated)} · ${exact(t.messages)} messages`;
 
@@ -375,7 +397,7 @@ function render(s) {
     return;
   }
 
-  odometer(t.all);
+  odometer(t.all, animate);
   $("equivalence").innerHTML = equivalence(t.all);
 
   $("stats").innerHTML =
@@ -432,15 +454,45 @@ function render(s) {
   ).join("");
 }
 
-fetch("./stats.json")
-  .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-  .then(render)
-  .catch(err => {
-    $("panels").innerHTML = `<div class="panel" role="alert"><h2>Could not load stats.json</h2>
-      <p>${esc(err.message)}. If you opened this page as a <code>file://</code>, run:</p>
-      <p><code>./refresh.sh</code> then <code>python3 -m http.server 8765</code> and open <code>http://localhost:8765/</code></p></div>`;
-    $("generated").textContent = "failed to load";
-  });
+function setLive(on, ok = true) {
+  const el = $("live-badge");
+  if (!on) { el.hidden = true; return; }
+  el.hidden = false;
+  el.classList.toggle("offline", !ok);
+  el.setAttribute("aria-label", ok
+    ? "Live: stats auto-refresh from the local database"
+    : "Live feed interrupted");
+}
+
+let currentGenerated = null;
+
+function applyStats(s) {
+  const changed = s.generated !== currentGenerated;
+  currentGenerated = s.generated;
+  render(s, changed && lastTotal > 0);
+  if (lastTotal > 0) setLive(true);
+}
+
+function poll() {
+  fetch("./stats.json", { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(applyStats)
+    .catch(err => {
+      if (currentGenerated === null) {
+        // first load failed — show the static-mode error panel
+        $("panels").innerHTML = `<div class="panel" role="alert"><h2>Could not load stats.json</h2>
+          <p>${esc(err.message)}. Run <code>./refresh.sh</code> then
+          <code>python3 -m http.server 8765</code>, or start the live server with
+          <code>python3 serve.py</code>, and open <code>http://localhost:8765/</code></p></div>`;
+        $("generated").textContent = "failed to load";
+      } else {
+        setLive(true, false); // transient failure: keep last numbers, flag it
+      }
+    });
+}
+
+poll();
+setInterval(poll, 4000);
 </script>
 </body>
 </html>
