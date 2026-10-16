@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenCode — Lifetime Token Ledger</title>
+<style>
+:root {
+  /* TYPE — 1.333 perfect fourth */
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --step--1: 0.75rem;  --step-0: 1rem;    --step-1: 1.333rem;
+  --step-2:  1.777rem; --step-3: 2.369rem; --step-4: 3.157rem;
+  --step-5:  4.209rem; --step-6: 5.61rem;
+
+  /* SPACE — base 0.5rem */
+  --space-3xs: 0.25rem; --space-2xs: 0.5rem; --space-xs: 0.75rem;
+  --space-s:   1rem;    --space-m:   1.5rem; --space-l:  2rem;
+  --space-xl:  3rem;    --space-2xl: 4.5rem;
+
+  /* COLOR — newsprint ledger */
+  --base:    #f4f1ea;
+  --surface: #ffffff;
+  --ink:     #16130f;
+  --ink-2:   #55504a;
+  --ink-3:   #8b857c;
+  --line:    #d8d2c6;
+  --accent:  #c1362f;
+
+  /* FORM */
+  --radius: 0;
+  --border: 1px solid var(--line);
+  --shadow: none;
+
+  /* MOTION */
+  --dur-fast: 120ms; --dur: 220ms; --dur-slow: 420ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--base);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--step-0);
+  line-height: 1.5;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 var(--space-m); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.skip-link {
+  position: absolute; left: -9999px;
+  background: var(--ink); color: var(--base);
+  padding: var(--space-2xs) var(--space-s);
+  font-family: var(--font-mono); font-size: var(--step--1);
+}
+.skip-link:focus { left: var(--space-s); top: var(--space-s); z-index: 99; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.site {
+  border-bottom: 3px double var(--ink);
+  padding: var(--space-m) 0;
+}
+.site-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--space-2xs); }
+.wordmark {
+  font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-2);
+}
+.wordmark b { color: var(--accent); font-weight: 700; }
+.meta { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); }
+
+/* HERO ODOMETER */
+.hero { padding: var(--space-2xl) 0 var(--space-xl); text-align: center; }
+.hero .kicker {
+  font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-2);
+  margin-bottom: var(--space-m);
+}
+#odometer {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2.4rem, 10.5vw, var(--step-6));
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+#odometer .comma { color: var(--accent); font-weight: 400; }
+.hero .unit {
+  font-family: var(--font-mono); font-size: var(--step-1);
+  color: var(--ink-3); margin-top: var(--space-2xs);
+}
+.hero .equivalence {
+  margin-top: var(--space-l);
+  font-size: var(--step-0); color: var(--ink-2);
+  max-width: 62ch; margin-left: auto; margin-right: auto;
+}
+.hero .equivalence b { color: var(--accent); font-weight: 700; }
+
+/* STAT ROW */
+.stats {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border-top: var(--border); border-bottom: 3px double var(--ink);
+  margin-bottom: var(--space-2xl);
+}
+.stats > div {
+  padding: var(--space-m) var(--space-s);
+  border-left: var(--border);
+  text-align: center;
+}
+.stats > div:first-child { border-left: none; }
+.stats dt {
+  font-family: var(--font-mono); font-size: var(--step--1);
+  text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3);
+  margin-bottom: var(--space-2xs);
+}
+.stats dd { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--step-1); font-weight: 700; }
+
+/* SECTIONS */
+section { margin-bottom: var(--space-2xl); }
+h2 {
+  font-family: var(--font-mono); font-size: var(--step--1);
+  text-transform: uppercase; letter-spacing: 0.18em; color: var(--ink-2);
+  font-weight: 700;
+  border-bottom: var(--border); padding-bottom: var(--space-2xs);
+  margin-bottom: var(--space-m);
+}
+h2 .n { color: var(--accent); }
+
+/* STACKED BAR */
+.stack { display: flex; height: var(--space-l); border: var(--border); background: var(--surface); }
+.stack span { display: block; height: 100%; }
+.legend { list-style: none; margin-top: var(--space-s); display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-2xs) var(--space-m); }
+.legend li { display: flex; align-items: center; gap: var(--space-2xs); font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-2); }
+.legend .sw { width: 0.75rem; height: 0.75rem; flex: none; border: 1px solid var(--ink); }
+.legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* TABLES */
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: var(--border); }
+caption { text-align: left; font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); padding-bottom: var(--space-2xs); }
+th, td { text-align: left; padding: var(--space-2xs) var(--space-xs); border-bottom: var(--border); font-size: var(--step--1); }
+th { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-2); border-bottom: 2px solid var(--ink); white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #faf7f0; }
+td .bar-cell { display: flex; align-items: center; gap: var(--space-2xs); }
+td .bar { height: 0.6rem; background: var(--accent); flex: none; min-width: 1px; }
+.model-name { font-family: var(--font-mono); font-weight: 700; }
+.model-prov { color: var(--ink-3); font-family: var(--font-mono); }
+
+/* CHARTS */
+.chart { border: var(--border); background: var(--surface); padding: var(--space-s); overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .bar-d { fill: var(--ink); }
+.chart .bar-d:hover { fill: var(--accent); }
+.chart .axis { font-family: var(--font-mono); font-size: 9px; fill: var(--ink-3); }
+.chart-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-m); }
+@media (min-width: 860px) { .chart-grid { grid-template-columns: 1fr 1fr; } }
+
+/* SESSIONS */
+.session-row { display: flex; justify-content: space-between; gap: var(--space-s); padding: var(--space-2xs) 0; border-bottom: var(--border); align-items: baseline; }
+.session-row:last-child { border-bottom: none; }
+.session-title { font-size: var(--step-0); }
+.session-meta { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); display: block; }
+.session-tok { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+
+/* PANELS (error / empty) */
+.panel { border: 2px solid var(--accent); background: var(--surface); padding: var(--space-m); font-family: var(--font-mono); font-size: var(--step--1); margin-bottom: var(--space-l); }
+.panel h2 { border: none; color: var(--accent); }
+.panel code { background: var(--base); padding: 0 var(--space-3xs); border: var(--border); }
+
+footer.site { border-top: 3px double var(--ink); padding: var(--space-m) 0 var(--space-xl); }
+footer.site p { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stats > div:nth-child(odd) { border-left: none; }
+  .stats > div { border-top: var(--border); }
+  .stats > div:nth-child(-n+2) { border-top: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <div class="wrap site-row">
+    <p class="wordmark"><b>■</b> OpenCode · Lifetime Token Ledger</p>
+    <p class="meta" id="generated">loading…</p>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <div class="wrap">
+    <div id="panels" aria-live="polite"></div>
+
+    <div class="hero">
+      <p class="kicker">Total tokens consumed, all models, all time</p>
+      <p id="odometer" aria-hidden="true">—</p>
+      <p class="sr-only" id="odometer-sr"></p>
+      <p class="unit">tokens</p>
+      <p class="equivalence" id="equivalence"></p>
+    </div>
+
+    <dl class="stats" id="stats"></dl>
+
+    <section aria-labelledby="h-split">
+      <h2 id="h-split"><span class="n">01</span> · Where the tokens went</h2>
+      <div class="stack" id="stack" role="img" aria-label="Token split by category"></div>
+      <ul class="legend" id="legend"></ul>
+    </section>
+
+    <section aria-labelledby="h-models">
+      <h2 id="h-models"><span class="n">02</span> · Model leaderboard</h2>
+      <table id="models-table">
+        <caption>Every model ranked by lifetime tokens. Hover a row for detail.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">Provider</th>
+            <th scope="col" class="num">Messages</th>
+            <th scope="col" class="num">Tokens</th>
+            <th scope="col">Share</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="h-timeline">
+      <h2 id="h-timeline"><span class="n">03</span> · Burn rate</h2>
+      <div class="chart-grid">
+        <div>
+          <table class="sr-only" id="daily-table"><caption>Daily token totals</caption><thead><tr><th scope="col">Date</th><th scope="col">Tokens</th></tr></thead><tbody></tbody></table>
+          <div class="chart" id="daily-chart" role="img" aria-label="Daily token usage bar chart; equivalent data in the daily token totals table"></div>
+        </div>
+        <div>
+          <table class="sr-only" id="monthly-table"><caption>Monthly token totals</caption><thead><tr><th scope="col">Month</th><th scope="col">Tokens</th></tr></thead><tbody></tbody></table>
+          <div class="chart" id="monthly-chart" role="img" aria-label="Monthly token usage bar chart; equivalent data in the monthly token totals table"></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-providers">
+      <h2 id="h-providers"><span class="n">04</span> · Provider share</h2>
+      <table id="providers-table">
+        <caption>Token share by provider.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Provider</th>
+            <th scope="col" class="num">Messages</th>
+            <th scope="col" class="num">Tokens</th>
+            <th scope="col">Share</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="h-sessions">
+      <h2 id="h-sessions"><span class="n">05</span> · Heaviest sessions</h2>
+      <div id="sessions"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Data source: local <code>opencode.db</code> — nothing leaves this machine. Refresh: <code>./refresh.sh</code> · serve: <code>python3 -m http.server 8765</code></p>
+  </div>
+</footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function fmt(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return String(n);
+}
+const exact = (n) => n.toLocaleString("en-US");
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function odometer(total) {
+  const el = $("odometer");
+  const render = (n) => {
+    el.innerHTML = exact(Math.round(n)).replace(/,/g, '<span class="comma">,</span>');
+  };
+  $("odometer-sr").textContent = `Total lifetime tokens: ${exact(total)}`;
+  if (REDUCED) { render(total); return; }
+  const dur = 1600, t0 = performance.now();
+  const ease = (t) => 1 - Math.pow(1 - t, 4);
+  function frame(t) {
+    const p = Math.min((t - t0) / dur, 1);
+    render(total * ease(p));
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+function equivalence(total) {
+  const chars = total * 4; // ~4 chars per token, roughly
+  const harryPotterTokens = 1_080_000; // 7 books ≈ 1.08M tokens
+  const warPeaceTokens = 560_000;
+  const books = Math.round(total / harryPotterTokens);
+  const wp = Math.round(total / warPeaceTokens);
+  return `≈ <b>${fmt(chars)}</b> characters of text · enough to read the entire Harry Potter series <b>${exact(books)}×</b> · War and Peace <b>${exact(wp)}×</b>`;
+}
+
+function statCard(label, value, title) {
+  return `<div><dt>${esc(label)}</dt><dd title="${esc(title || value)}">${esc(value)}</dd></div>`;
+}
+
+function barChart(containerId, tableId, rows, labelKey) {
+  const container = $(containerId);
+  const tb = $(tableId).querySelector("tbody");
+  if (!rows.length) { container.innerHTML = '<p class="meta">No data.</p>'; return; }
+  const W = 560, H = 180, pad = 28;
+  const max = Math.max(...rows.map(r => r.tokens));
+  const bw = Math.min((W - pad) / rows.length, 56);
+  const groupW = bw * rows.length;
+  const x0 = pad + Math.max(0, (W - pad - groupW) / 2);
+  let bars = "", labels = "", trows = "";
+  rows.forEach((r, i) => {
+    const h = max > 0 ? Math.max(1, (r.tokens / max) * (H - pad - 18)) : 0;
+    const x = x0 + i * bw;
+    const y = H - pad - h;
+    bars += `<rect class="bar-d" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw - 1.5).toFixed(1)}" height="${h.toFixed(1)}"><title>${esc(r[labelKey])}: ${exact(r.tokens)} tokens (${exact(r.messages)} msgs)</title></rect>`;
+    trows += `<tr><td>${esc(r[labelKey])}</td><td class="num">${exact(r.tokens)}</td></tr>`;
+    if (rows.length <= 31 || i % Math.ceil(rows.length / 8) === 0) {
+      labels += `<text class="axis" x="${(x + bw / 2).toFixed(1)}" y="${H - pad + 12}" text-anchor="middle">${esc(String(r[labelKey]).slice(5))}</text>`;
+    }
+  });
+  const ylabels = `<text class="axis" x="2" y="10" text-anchor="start">${fmt(max)}</text><text class="axis" x="${pad - 4}" y="${H - pad}" text-anchor="end">0</text>`;
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><line x1="${pad}" y1="${H - pad}" x2="${W}" y2="${H - pad}" stroke="#16130f" stroke-width="1"/>${bars}${labels}${ylabels}</svg>`;
+  tb.innerHTML = trows;
+}
+
+function shareRow(r, total, withProvider) {
+  const pct = total > 0 ? (r.tokens / total) * 100 : 0;
+  const barW = Math.max(1, pct * 2.4);
+  const share = `<span class="bar-cell"><span class="bar" style="width:${barW.toFixed(1)}px" aria-hidden="true"></span>${pct.toFixed(1)}%</span>`;
+  return withProvider
+    ? `<tr><td class="num">${esc(r.provider)}</td><td class="num">${exact(r.messages)}</td><td class="num">${exact(r.tokens)}</td><td>${share}</td></tr>`
+    : share;
+}
+
+function render(s) {
+  const t = s.totals;
+  $("generated").textContent = `data as of ${fmtDate(s.generated)} · ${exact(t.messages)} messages`;
+
+  if (t.all === 0) {
+    $("panels").innerHTML = '<div class="panel"><h2>No tokens yet</h2><p>stats.json loaded but contains zero tokens. Run <code>./refresh.sh</code> after using OpenCode.</p></div>';
+    return;
+  }
+
+  odometer(t.all);
+  $("equivalence").innerHTML = equivalence(t.all);
+
+  $("stats").innerHTML =
+    statCard("Messages", exact(t.messages)) +
+    statCard("Sessions", exact(t.sessions)) +
+    statCard("Days active", exact(s.days_active)) +
+    statCard("API cost", "$" + t.cost.toFixed(2), t.cost === 0 ? "All models were free-tier" : "") +
+    statCard("Best day", s.best_day ? exact(fmt(s.best_day.tokens)) + " tok" : "—", s.best_day ? `${s.best_day.date}: ${exact(s.best_day.tokens)} tokens` : "");
+
+  // token split
+  const parts = [
+    { label: "Cache read", v: t.cache_read, color: "#d8d2c6" },
+    { label: "Input", v: t.input, color: "#16130f" },
+    { label: "Output", v: t.output, color: "#c1362f" },
+    { label: "Reasoning", v: t.reasoning, color: "#55504a" },
+    { label: "Cache write", v: t.cache_write, color: "#8b857c" },
+  ].filter(p => p.v > 0);
+  $("stack").innerHTML = parts.map(p =>
+    `<span style="width:${((p.v / t.all) * 100).toFixed(2)}%;background:${p.color}" title="${p.label}: ${exact(p.v)}"></span>`
+  ).join("");
+  $("legend").innerHTML = parts.map(p =>
+    `<li><span class="sw" style="background:${p.color}" aria-hidden="true"></span>${p.label} · <b>${fmt(p.v)}</b> (${((p.v / t.all) * 100).toFixed(1)}%)</li>`
+  ).join("");
+  $("stack").setAttribute("aria-label", parts.map(p => `${p.label} ${((p.v / t.all) * 100).toFixed(1)}%`).join(", "));
+
+  // models table
+  const maxModel = Math.max(...s.by_model.map(m => m.tokens));
+  $("models-table").querySelector("tbody").innerHTML = s.by_model.map(m => {
+    const pct = (m.tokens / t.all) * 100;
+    const barW = maxModel > 0 ? Math.max(1, (m.tokens / maxModel) * 120) : 1;
+    return `<tr>
+      <td><span class="model-name">${esc(m.model)}</span>${m.variant ? ` <span class="model-prov">· ${esc(m.variant)}</span>` : ""}</td>
+      <td class="model-prov">${esc(m.provider)}</td>
+      <td class="num">${exact(m.messages)}</td>
+      <td class="num">${exact(m.tokens)}</td>
+      <td><span class="bar-cell"><span class="bar" style="width:${barW.toFixed(1)}px" aria-hidden="true"></span>${pct.toFixed(1)}%</span></td>
+    </tr>`;
+  }).join("");
+
+  // charts — last 90 active days
+  barChart("daily-chart", "daily-table", s.timeline.slice(-90), "date");
+  barChart("monthly-chart", "monthly-table", s.monthly, "month");
+
+  // providers
+  $("providers-table").querySelector("tbody").innerHTML =
+    s.by_provider.map(p => `<tr><td>${esc(p.provider)}</td><td class="num">${exact(p.messages)}</td><td class="num">${exact(p.tokens)}</td><td>${shareRow(p, t.all, false)}</td></tr>`).join("");
+
+  // sessions
+  $("sessions").innerHTML = s.sessions_top.map(sess =>
+    `<div class="session-row">
+      <span><span class="session-title">${esc(sess.title)}</span><span class="session-meta">${esc(sess.project)} · ${esc(sess.model || "—")} · ${exact(sess.messages)} messages</span></span>
+      <span class="session-tok">${exact(sess.tokens)} tok</span>
+    </div>`
+  ).join("");
+}
+
+fetch("./stats.json")
+  .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+  .then(render)
+  .catch(err => {
+    $("panels").innerHTML = `<div class="panel" role="alert"><h2>Could not load stats.json</h2>
+      <p>${esc(err.message)}. If you opened this page as a <code>file://</code>, run:</p>
+      <p><code>./refresh.sh</code> then <code>python3 -m http.server 8765</code> and open <code>http://localhost:8765/</code></p></div>`;
+    $("generated").textContent = "failed to load";
+  });
+</script>
+</body>
+</html>
