@@ -31,6 +31,8 @@ estimated costs, budgets and alerts.
 
 ![opencode-ledger dashboard — demo mode with synthetic data](docs/screenshot.png)
 
+![Range chips re-render every section — demo mode with synthetic data](docs/demo.gif)
+
 ## Quickstart
 
 ### Local (no install)
