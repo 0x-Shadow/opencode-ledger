@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from opencode_ledger import extract
 
 DB_PATH = os.path.expanduser("~/.local/share/opencode/opencode.db")
+HAS_REAL_DB = os.path.exists(DB_PATH)
 
 
 def make_row(model_id="m", provider="p", variant=None, inp=0, out=0,
@@ -246,8 +247,8 @@ class AggregateTests(unittest.TestCase):
 
 
 class IntegrationTests(unittest.TestCase):
+    @unittest.skipUnless(HAS_REAL_DB, f"real opencode.db not present: {DB_PATH}")
     def test_extract_real_db(self):
-        self.assertTrue(os.path.exists(DB_PATH), f"DB not found: {DB_PATH}")
         with tempfile.TemporaryDirectory() as td:
             out = os.path.join(td, "stats.json")
             stats = extract.run(DB_PATH, out)
@@ -299,6 +300,7 @@ class IntegrationTests(unittest.TestCase):
         print(f"cross-check: messages_total={t['all']} json_extract={sql_total} "
               f"session_v2={sql_session_total} skipped={stats['skipped_rows']}")
 
+    @unittest.skipUnless(HAS_REAL_DB, f"real opencode.db not present: {DB_PATH}")
     def test_run_applies_pricing(self):
         with tempfile.TemporaryDirectory() as td:
             out = os.path.join(td, "stats.json")
