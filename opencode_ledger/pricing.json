@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Approximate public list prices for common models, in USD per 1M tokens, rounded. These are ESTIMATES for the 'estimated retail cost' display and will drift over time — override any entry via the `pricing` config key or a custom `pricing_file`. reasoning defaults to the output price; cache_read/cache_write default to the input price when omitted.",
+  "note": "Approximate public list prices as of 2026-10, for common models, in USD per 1M tokens, rounded. These are ESTIMATES for the 'estimated retail cost' display — not provider billing data — and will drift over time; override any entry via the `pricing` config key or a custom `pricing_file`. reasoning defaults to the output price; cache_read/cache_write default to the input price when omitted.",
   "models": {
     "opencode/mimo-v2.6-flash-free": {"input": 0, "output": 0},
     "opencode/muse-spark-1.3-contributor-free": {"input": 0, "output": 0},

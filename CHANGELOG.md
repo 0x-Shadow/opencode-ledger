@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-10-17
+
+### Fixed
+
+- **Clear compatibility errors** — a database missing the `session_message`
+  table (or a corrupt/non-SQLite file) now fails with a single actionable
+  `error:` line instead of a Python traceback, and points at the issue tracker
+  for schema changes. Config errors (invalid `webhook_url`, missing config
+  file) also print clean CLI errors now.
+
+### Added
+
+- **Webhook URL validation** — `alerts.webhook_url` must be an `http(s)` URL;
+  invalid values are rejected at config load with the offending key named.
+- **README screenshot** — demo-mode dashboard preview (`docs/screenshot.png`).
+
+### Docs
+
+- **Cost accuracy** — estimates vs provider billing spelled out, pricing key
+  matching (`provider/model`, then bare `model`) and the price-as-of date
+  documented in `docs/configuration.md`.
+- **Remote-access hardening checklist** — TLS, firewall, token handling
+  (`?token=` caveat), `/metrics` scraping and webhook guidance added to the
+  self-hosting guide.
+
 ## [1.0.0] — 2026-10-17
 
 First stable release. A private, self-hosted token-usage ledger for OpenCode:

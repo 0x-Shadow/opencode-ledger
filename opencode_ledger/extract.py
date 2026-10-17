@@ -24,6 +24,10 @@ COMPONENTS = ("input", "output", "reasoning", "cache_read", "cache_write")
 TOP_SESSIONS = 15
 
 
+class DatabaseIncompatible(RuntimeError):
+    """The OpenCode database is missing tables/columns this version needs."""
+
+
 def parse_message(data):
     """Parse an assistant message's data JSON. Returns None if malformed
     or missing/mistyped the keys we aggregate on."""
@@ -269,8 +273,16 @@ def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None,
     conn = sqlite3.connect(uri, uri=True)
     conn.execute("PRAGMA busy_timeout=3000")
     try:
-        session_meta = load_session_meta(conn)
-        raw_rows = read_rows(conn)
+        try:
+            session_meta = load_session_meta(conn)
+            raw_rows = read_rows(conn)
+        except sqlite3.DatabaseError as e:
+            raise DatabaseIncompatible(
+                f"unsupported database layout: {e}; expected the OpenCode "
+                f"table 'session_message' (session_id, type, data). If a new "
+                f"OpenCode version changed its schema, please report it: "
+                f"https://github.com/0x-Shadow/opencode-ledger/issues"
+            ) from None
     finally:
         conn.close()
 
@@ -305,6 +317,8 @@ def main(db_path=None, out_path=None):
     try:
         stats = run(db_path, out_path)
     except FileNotFoundError as e:
+        sys.exit(f"error: {e}")
+    except DatabaseIncompatible as e:
         sys.exit(f"error: {e}")
     t = stats["totals"]
     print(f"wrote {out_path}")

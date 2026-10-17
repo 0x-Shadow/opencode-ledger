@@ -19,6 +19,7 @@ import copy
 import json
 import os
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 CONFIG_ENV = "OPENCODE_LEDGER_CONFIG"
 ENV_PREFIX = "OPENCODE_LEDGER_"
@@ -210,6 +211,10 @@ def _validate(cfg: Config, sources: dict, home: str):
     fmt = cfg.alerts.get("webhook_format", "generic")
     if fmt not in WEBHOOK_FORMATS:
         fail("alerts.webhook_format", f"must be one of {', '.join(WEBHOOK_FORMATS)}")
+    url = cfg.alerts.get("webhook_url")
+    if url:
+        if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
+            fail("alerts.webhook_url", "must be an http:// or https:// URL")
     thresholds = cfg.alerts.get("thresholds", [])
     if (not isinstance(thresholds, list) or not thresholds
             or any(not isinstance(t, (int, float)) or t <= 0 for t in thresholds)):

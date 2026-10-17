@@ -61,10 +61,25 @@ Validation errors name the offending key and its source
 
 ## Cost estimation
 
-`pricing.json` ships list prices for common models. Tokens that match no price
-are counted as `unpriced_tokens` and never guessed in the totals — the UI marks
-costs with `≈` and the API reports `priced` per model. Override any model via
-`pricing` / `pricing_file`; keys are the model id as stored in the database.
+`pricing.json` ships approximate public **list prices as of 2026-10** for common
+models, in USD per 1M tokens. Every cost shown in the UI, API or CLI is an
+estimate from that table — **not provider billing data**. Cached tokens,
+subscription plans, free models and price changes all make the real bill differ.
+
+Rules:
+
+- Tokens that match no price are counted as `unpriced_tokens` and never guessed
+  into the totals — the UI marks costs with `≈` and the API reports `priced`
+  per model.
+- Override any model via `pricing` / `pricing_file`. Keys accept both
+  `provider/model` (exact match, wins) and bare `model` (fallback); the
+  built-in table stores the id exactly as it appears in the database.
+- Omitted components default sensibly: `reasoning` to the output price,
+  `cache_read` / `cache_write` to the input price.
+
+For verified spending, reconcile your provider's billing export against the
+token counts here and keep the two numbers visibly separate — estimates are for
+trends and budgets, invoices are the truth.
 
 ## Alerts behaviour
 

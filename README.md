@@ -29,6 +29,8 @@ estimated costs, budgets and alerts.
 └────────────────────────────────────────────────────────────────┘
 ```
 
+![opencode-ledger dashboard — demo mode with synthetic data](docs/screenshot.png)
+
 ## Quickstart
 
 ### Local (no install)
@@ -167,8 +169,11 @@ scrape_configs:
 - Aggregates only: token counts, costs and *names* (models, providers, agents,
   projects, session titles). Message content is never extracted.
 - Binds to `127.0.0.1` by default; set a token before exposing it anywhere.
+  See the hardening checklist in [docs/self-hosting.md](docs/self-hosting.md).
+- Costs are **list-price estimates, not provider billing data** — see
+  [Cost estimation](docs/configuration.md#cost-estimation).
 - Optional webhook alerts are the only outbound traffic, and only when you
-  configure a URL.
+  configure a URL (validated as `http(s)`).
 
 See [SECURITY.md](SECURITY.md).
 

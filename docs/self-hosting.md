@@ -101,6 +101,21 @@ location / {
 Either way: **set a token or put auth in front before exposing the dashboard.**
 It reveals your usage metadata (models, projects, session titles).
 
+Hardening checklist for anything beyond localhost:
+
+- [ ] **TLS at the proxy** (Caddy `tls` / nginx `listen 443 ssl`). The app
+      itself speaks plain HTTP only — never expose port 8765 directly.
+- [ ] **Keep the app bound to `127.0.0.1`** and let the proxy reach it, or
+      firewall the port so only the proxy can connect.
+- [ ] **Auth required**: a token (or proxy auth) on every route — `/metrics`
+      included; scrape it over localhost or with credentials.
+- [ ] **Prefer the `Authorization` header over `?token=`** in URLs: query
+      strings leak into proxy logs and browser history.
+- [ ] **Webhook URLs must be `https://`** (the config validator enforces
+      `http(s)`); payloads carry token totals and budget ratios.
+- [ ] **Rotate the token** if it ever appears in a screenshot, log or shell
+      history.
+
 ## Prometheus
 
 ```yaml

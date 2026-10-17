@@ -182,7 +182,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command is None:   # bare -h/--help/-V/--version
         parser.print_help()
         return 0
-    return COMMANDS[args.command](args)
+    try:
+        return COMMANDS[args.command](args)
+    except (config.ConfigError, extract.DatabaseIncompatible,
+            FileNotFoundError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
