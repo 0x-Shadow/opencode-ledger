@@ -1,0 +1,33 @@
+[Unit]
+Description=opencode-ledger — self-hosted token usage dashboard for OpenCode
+Documentation=https://github.com/0x-Shadow/opencode-ledger
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=@EXEC@ serve
+EnvironmentFile=-%h/.config/opencode-ledger/env
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=5s
+UMask=0077
+
+# Hardening — systemd user unit, no privileges involved.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+
+# Only the budget/alert state file is writable; the OpenCode database stays
+# read-only under ProtectHome=read-only.
+ReadWritePaths=%h/.local/state/opencode-ledger
+
+[Install]
+WantedBy=default.target
