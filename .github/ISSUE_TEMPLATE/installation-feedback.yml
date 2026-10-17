@@ -1,0 +1,58 @@
+name: Installation feedback
+description: How did installing and running Ledger go? The broken, the confusing, the good.
+title: "[feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying opencode-ledger. This takes ~3 minutes and directly
+        shapes what gets built next — "I got stuck at step 3" is extremely
+        useful feedback, no question is too small.
+  - type: input
+    id: install-method
+    attributes:
+      label: How did you install it?
+      placeholder: "pipx / pip / Docker Compose / python3 serve.py directly"
+    validations:
+      required: true
+  - type: dropdown
+    id: worked-first-try
+    attributes:
+      label: Did the README get you to a running dashboard without help?
+      options:
+        - "Yes, first try"
+        - "Yes, after some fiddling"
+        - "No — I got stuck"
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What was confusing or broke?
+      description: Install errors, unclear steps, wrong assumptions about your setup — paste exact commands and output if you can.
+    validations:
+      required: false
+  - type: textarea
+    id: missing
+    attributes:
+      label: What is missing for you to keep running it?
+    validations:
+      required: false
+  - type: dropdown
+    id: retention
+    attributes:
+      label: Will you keep it running?
+      options:
+        - "Yes"
+        - "Not sure yet"
+        - "No"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "OS, Python version, how OpenCode is installed"
+    validations:
+      required: false

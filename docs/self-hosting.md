@@ -113,8 +113,9 @@ Hardening checklist for anything beyond localhost:
 - [ ] **Prefer the `Authorization` header over `?token=`** in URLs: query
       strings leak into proxy logs and browser history.
 - [ ] **Forward `X-Forwarded-Proto: https`** (Caddy does this automatically;
-      see the nginx snippet above): the `ledger_token` cookie is then marked
-      `Secure`.
+      the nginx snippet above uses `proxy_set_header`, which *overwrites* any
+      client-supplied value — the header is only trustworthy when the proxy
+      sets it): the `ledger_token` cookie is then marked `Secure`.
 - [ ] **Webhook URLs must be `https://`** (the config validator enforces
       `http(s)`); payloads carry token totals and budget ratios.
 - [ ] **Rotate the token** if it ever appears in a screenshot, log or shell
