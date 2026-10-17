@@ -1,0 +1,38 @@
+# opencode-ledger — self-hosted token analytics for OpenCode
+#
+#   docker compose up -d --build        # then open http://localhost:8765/
+#   OPENCODE_DATA_DIR=/path/to/data docker compose up -d
+#
+# The OpenCode data directory is mounted read-only; the dashboard never writes
+# to it. Only the small budget/alert state file lives in a named volume.
+
+name: opencode-ledger
+
+services:
+  ledger:
+    build: .
+    image: opencode-ledger:1.0.0
+    container_name: opencode-ledger
+    ports:
+      - "8765:8765"
+    environment:
+      OPENCODE_LEDGER_DB: /data/opencode/opencode.db
+      # Recommended on any shared machine — clients must then send this token:
+      # OPENCODE_LEDGER_TOKEN: change-me
+      # Budgets / webhook alerts, e.g.:
+      # OPENCODE_LEDGER_BUDGET_DAILY_COST: "5"
+      # OPENCODE_LEDGER_WEBHOOK_URL: https://ntfy.sh/your-topic
+      # OPENCODE_LEDGER_WEBHOOK_FORMAT: ntfy
+    volumes:
+      - ${OPENCODE_DATA_DIR:-~/.local/share/opencode}:/data/opencode:ro
+      - ledger-state:/data/state
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,sys,urllib.request; p=os.environ.get('OPENCODE_LEDGER_PORT','8765'); req=urllib.request.Request('http://127.0.0.1:'+p+'/api/healthz'); t=os.environ.get('OPENCODE_LEDGER_TOKEN',''); req.add_header('X-Ledger-Token',t) if t else None; sys.exit(0 if urllib.request.urlopen(req, timeout=2).status==200 else 1)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+volumes:
+  ledger-state:

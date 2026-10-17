@@ -1,0 +1,14 @@
+.git/
+.github/
+docs/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+stats.json
+ledger_state.json
+ledger.json
+test_*.py
