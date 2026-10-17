@@ -11,7 +11,7 @@ name: opencode-ledger
 services:
   ledger:
     build: .
-    image: opencode-ledger:1.0.2
+    image: opencode-ledger:1.0.3
     container_name: opencode-ledger
     ports:
       - "8765:8765"

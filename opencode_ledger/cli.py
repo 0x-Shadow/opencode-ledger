@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return COMMANDS[args.command](args)
     except (config.ConfigError, extract.DatabaseIncompatible,
-            FileNotFoundError) as e:
+            extract.DatabaseBusy, FileNotFoundError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

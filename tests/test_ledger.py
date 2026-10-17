@@ -143,6 +143,27 @@ class ExtractTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             extract.run(os.path.join(self.tmp.name, "missing.db"), self.out)
 
+    def test_locked_database_reports_busy_not_incompatible(self):
+        db = os.path.join(self.tmp.name, "locked.db")
+        make_db(db, [("s1", message(5, 5))])
+        holder = subprocess.Popen(
+            [sys.executable, "-c",
+             "import sqlite3, sys, time\n"
+             "conn = sqlite3.connect(sys.argv[1])\n"
+             "conn.execute('BEGIN EXCLUSIVE')\n"
+             "print('holding', flush=True)\n"
+             "time.sleep(15)\n", db],
+            stdout=subprocess.PIPE, text=True)
+
+        def _stop():
+            holder.kill()
+            holder.wait(timeout=5)
+
+        self.addCleanup(_stop)
+        self.assertEqual(holder.stdout.readline().strip(), "holding")
+        with self.assertRaises(extract.DatabaseBusy):
+            extract.run(db, self.out)
+
     def test_reserved_characters_in_filename(self):
         sub = os.path.join(self.tmp.name, "sub #1?%")
         os.makedirs(sub)
@@ -350,6 +371,27 @@ class ServerAuthTests(unittest.TestCase):
         # Even authenticated, arbitrary files are not routes.
         self.assertEqual(
             self._status("/secret-marker.txt", token=True, method="HEAD"), 404)
+
+    def test_other_methods_cannot_reach_files(self):
+        for method in ("POST", "PUT", "PATCH", "DELETE", "OPTIONS"):
+            with self.subTest(method=method):
+                # Unauthenticated: 401, same as GET/HEAD.
+                self.assertEqual(
+                    self._status("/secret-marker.txt", method=method), 401)
+                # Authenticated: 405 + Allow; the path is never resolved.
+                req = urllib.request.Request(
+                    self.base + "/secret-marker.txt", method=method)
+                req.add_header("Authorization", f"Bearer {self.TOKEN}")
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req, timeout=5)
+                self.assertEqual(ctx.exception.code, 405)
+                self.assertEqual(
+                    ctx.exception.headers.get("Allow"), "GET, HEAD")
+                self.assertNotIn(b"top secret", ctx.exception.read())
+                ctx.exception.close()
+        # Unknown methods fall back to the stock 501 — still no file access.
+        self.assertEqual(
+            self._status("/secret-marker.txt", method="FOOBAR"), 501)
 
     def test_authorized_requests_work(self):
         with self._get("/api/ready", token=True) as resp:

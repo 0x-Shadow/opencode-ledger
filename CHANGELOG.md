@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] — 2026-10-17
+
+Verification follow-up (HTTP methods, proxy trust, webhook destinations,
+database life cycle).
+
+### Changed
+
+- `POST`, `PUT`, `PATCH`, `DELETE` and `OPTIONS` now answer `405` with
+  `Allow: GET, HEAD` — after the authentication check, consistent with
+  `GET`/`HEAD`. Unknown methods still get the standard `501`. No non-GET
+  method path touches the filesystem (regression-tested).
+
+### Fixed
+
+- A locked database is reported as a transient, actionable error
+  (`database is locked or busy … retry in a moment`) instead of the
+  misleading "unsupported database layout" message, after a single busy
+  timeout (previously two).
+
 ## [1.0.2] — 2026-10-17
 
 ### Security

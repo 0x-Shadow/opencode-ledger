@@ -23,6 +23,17 @@ read-only, aggregates it, and serves one HTML page plus a small JSON API on
   `output` setting) is written with `0600` permissions. It contains session
   titles and project names — treat it as sensitive data.
 - The UI makes zero external requests (no CDNs, fonts or analytics).
+- The `X-Forwarded-Proto` header only decides whether the `ledger_token`
+  cookie is marked `Secure`; it can never disable or downgrade
+  authentication. A direct client can set it, which affects only that
+  client's own cookie, so trust in the header is delegated to network
+  topology: keep the default loopback bind — or firewall the port — so only
+  your reverse proxy can reach the server.
+- Webhook destinations (`alerts.webhook_url`) come from your own local
+  configuration — file, environment or CLI flags — never from an HTTP
+  request. Any `http(s)` destination is allowed by design, including
+  self-hosted services on your LAN; delivery uses a 10-second timeout and is
+  best-effort (a broken webhook never affects serving).
 
 Because the dashboard exposes your usage (and session titles) over HTTP:
 

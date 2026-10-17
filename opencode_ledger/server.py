@@ -277,6 +277,20 @@ def make_handler(cfg, out_path: str, doc_root: str, demo_stats: dict | None = No
             # static files from the process CWD without any authentication.
             self.do_GET()
 
+        def _method_not_allowed(self):
+            # Auth first, so every method behaves consistently; no method
+            # other than GET/HEAD can reach routing or the filesystem.
+            self._token_from_query = False
+            if not self._authenticated():
+                self._send_error_json(
+                    401, "unauthorized",
+                    {"WWW-Authenticate": 'Bearer realm="opencode-ledger"'})
+                return
+            self._send_error_json(405, "method not allowed",
+                                  {"Allow": "GET, HEAD"})
+
+        do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = _method_not_allowed
+
         def version_string(self):
             return f"opencode-ledger/{__version__}"
 

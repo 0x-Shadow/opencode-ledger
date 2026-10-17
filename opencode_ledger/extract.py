@@ -29,6 +29,10 @@ class DatabaseIncompatible(RuntimeError):
     """The OpenCode database is missing tables/columns this version needs."""
 
 
+class DatabaseBusy(RuntimeError):
+    """The database is locked by another writer; retrying usually helps."""
+
+
 def parse_message(data):
     """Parse an assistant message's data JSON. Returns None if malformed
     or missing/mistyped the keys we aggregate on."""
@@ -242,7 +246,10 @@ def load_session_meta(conn):
             "SELECT s.id, s.title, s.model, p.worktree FROM session_v2 s "
             "LEFT JOIN project p ON p.id = s.project_id"
         ).fetchall()
-    except sqlite3.OperationalError:
+    except sqlite3.OperationalError as e:
+        message = str(e).lower()
+        if "locked" in message or "busy" in message:
+            raise  # transient lock: don't mask it as "no session_v2 table"
         return meta
     for sid, title, model, worktree in rows:
         project = os.path.basename(worktree.rstrip("/")) if worktree else None
@@ -287,6 +294,13 @@ def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None,
                 parsed["session_id"] = sid
                 rows.append(parsed)
         except sqlite3.DatabaseError as e:
+            message = str(e).lower()
+            if "locked" in message or "busy" in message:
+                raise DatabaseBusy(
+                    f"database is locked or busy ({e}); another process is "
+                    f"writing to it, or a stale journal needs recovery — "
+                    f"retry in a moment"
+                ) from None
             raise DatabaseIncompatible(
                 f"unsupported database layout: {e}; expected the OpenCode "
                 f"table 'session_message' (session_id, type, data). If a new "
@@ -318,9 +332,7 @@ def main(db_path=None, out_path=None):
     out_path = out_path or DEFAULT_OUT
     try:
         stats = run(db_path, out_path)
-    except FileNotFoundError as e:
-        sys.exit(f"error: {e}")
-    except DatabaseIncompatible as e:
+    except (FileNotFoundError, DatabaseIncompatible, DatabaseBusy) as e:
         sys.exit(f"error: {e}")
     t = stats["totals"]
     print(f"wrote {out_path}")

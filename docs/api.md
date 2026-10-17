@@ -17,6 +17,14 @@ When `token` is configured, **every route** requires it. Accepted forms:
 Without the token the server answers `401` with
 `WWW-Authenticate: Bearer realm="opencode-ledger"`. Comparison is constant-time.
 
+## Methods
+
+Only `GET` and `HEAD` are routed. `POST`, `PUT`, `PATCH`, `DELETE` and
+`OPTIONS` answer `405 Method Not Allowed` with `Allow: GET, HEAD` — after the
+usual authentication check, so unauthenticated callers still get `401`. Any
+other method gets the standard `501`. No non-GET method ever touches the
+filesystem.
+
 ## Routes
 
 ### `GET /`
