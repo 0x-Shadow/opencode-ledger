@@ -258,8 +258,9 @@ def read_rows(conn):
     ).fetchall()
 
 
-def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None):
-    """Extract, annotate with pricing, write stats.json, return the stats dict."""
+def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None,
+        write=True):
+    """Extract, annotate with pricing, optionally write stats.json, return stats."""
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"database not found: {db_path}")
     # mode=ro (not immutable=1) so committed WAL data is visible while
@@ -288,12 +289,13 @@ def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None):
     stats["version"] = __version__
     apply_pricing(stats, pricing_table or PricingTable())
 
-    parent = os.path.dirname(os.path.abspath(out_path))
-    os.makedirs(parent, exist_ok=True)
-    tmp = out_path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(stats, f, indent=1)
-    os.replace(tmp, out_path)
+    if write:
+        parent = os.path.dirname(os.path.abspath(out_path))
+        os.makedirs(parent, exist_ok=True)
+        tmp = out_path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(stats, f, indent=1)
+        os.replace(tmp, out_path)
     return stats
 
 
