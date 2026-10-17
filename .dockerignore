@@ -11,4 +11,3 @@ venv/
 stats.json
 ledger_state.json
 ledger.json
-test_*.py

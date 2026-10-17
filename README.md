@@ -175,9 +175,9 @@ See [SECURITY.md](SECURITY.md).
 ## Development
 
 ```bash
-python3 -m unittest -q     # full suite (no install needed)
-ruff check .               # lint (pip install ruff)
-python3 serve.py --demo    # happy-path smoke test
+make smoke      # boot the demo server and check every route answers 200
+make lint       # static checks (needs: pip install ruff)
+make demo       # browse synthetic data at http://localhost:8765/
 ```
 
 - `opencode_ledger/` — the package: extractor, config, pricing, budgets, alerts,

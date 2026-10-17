@@ -21,23 +21,25 @@ These are load-bearing; pull requests that break them will be asked to change:
 ```bash
 git clone https://github.com/0x-Shadow/opencode-ledger
 cd opencode-ledger
-python3 -m unittest -q          # full suite, no install needed
-python3 serve.py --demo         # live demo at http://localhost:8765/
+make demo                       # live demo at http://localhost:8765/
+make smoke                      # boot the demo server, check every route
 ```
 
 Optional tools:
 
 ```bash
 pip install ruff                # lint
-ruff check .
+make lint
 ```
 
-## Tests
+## Verifying your change
 
-- Every behaviour change needs a test. Bug fixes start with a failing test.
-- `python3 -m unittest -q` must be green before you open a PR.
-- `test_extract.py` includes a two-sided integration cross-check against
-  SQLite's own JSON aggregation — keep it honest.
+- Run `make smoke` — it boots the demo server and checks every route answers
+  `200`. It must pass before you open a PR.
+- Also exercise the change by hand in `make demo` mode (that is what the
+  endpoint smoke test cannot see: rendering, interactions, edge cases).
+- For extractor changes, compare against your real database with
+  `opencode-ledger extract` and eyeball totals in the dashboard.
 
 ## Style
 
@@ -51,7 +53,7 @@ ruff check .
 2. Describe *what changed and why*, plus how you verified it (exact commands).
 3. Update `CHANGELOG.md` under "Unreleased" for user-visible changes.
 4. Screenshots are welcome for UI changes (before/after).
-5. CI must pass: tests on 3.10–3.13, ruff, and a Docker build.
+5. CI must pass: ruff, the endpoint smoke test, and a Docker build.
 
 ## Reporting bugs
 

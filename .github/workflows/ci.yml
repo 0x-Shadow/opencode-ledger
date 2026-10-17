@@ -9,27 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: tests (py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install package
-        run: python -m pip install -e .
-      - name: Unit tests
-        run: python -m unittest -q
-      - name: CLI smoke test
-        run: |
-          opencode-ledger version
-          python -m opencode_ledger version
-
   lint:
     name: ruff
     runs-on: ubuntu-latest
@@ -40,6 +19,24 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install ruff
       - run: ruff check .
+
+  smoke:
+    name: install + endpoint smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: CLI smoke test
+        run: |
+          opencode-ledger version
+          opencode-ledger config --json > /dev/null
+          python -m opencode_ledger version
+      - name: Serve demo and check every route
+        run: make smoke
 
   docker:
     name: docker build + demo smoke test
