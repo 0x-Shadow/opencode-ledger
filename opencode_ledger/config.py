@@ -194,8 +194,8 @@ def _validate(cfg: Config, sources: dict, home: str):
 
     if not isinstance(cfg.host, str) or not cfg.host.strip():
         fail("host", "must be a non-empty string")
-    if not (1 <= cfg.port <= 65535):
-        fail("port", "must be 1..65535")
+    if not (0 <= cfg.port <= 65535):
+        fail("port", "must be 0..65535 (0 = any free port)")
     if cfg.throttle_seconds < 0:
         fail("throttle_seconds", "must be >= 0")
     if cfg.poll_seconds < 1:

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencode-ledger"
+dynamic = ["version"]
+description = "Self-hosted token usage analytics for OpenCode: lifetime totals, burn rate, cost estimates, budgets, alerts, exports and Prometheus metrics. Zero dependencies."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Nick", email = "0x-Shadow@users.noreply.github.com" }]
+keywords = ["opencode", "tokens", "usage", "dashboard", "self-hosted",
+            "observability", "prometheus", "sqlite", "llm"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: System :: Monitoring",
+  "Topic :: Utilities",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/0x-Shadow/opencode-ledger"
+Repository = "https://github.com/0x-Shadow/opencode-ledger"
+Issues = "https://github.com/0x-Shadow/opencode-ledger/issues"
+
+[project.scripts]
+opencode-ledger = "opencode_ledger.cli:main"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[tool.setuptools.dynamic]
+version = { attr = "opencode_ledger.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["opencode_ledger*"]
+
+[tool.setuptools.package-data]
+opencode_ledger = ["static/*", "pricing.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501", "B008"]

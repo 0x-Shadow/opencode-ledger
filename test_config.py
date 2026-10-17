@@ -129,10 +129,15 @@ class ValidationTests(unittest.TestCase):
             config.load(env=self.env, cwd=self.tmp.name)
 
     def test_invalid_port_rejected(self):
-        for bad in ("abc", "0", "70000"):
+        for bad in ("abc", "70000"):
             with self.assertRaises(config.ConfigError):
                 config.load(env=dict(self.env, OPENCODE_LEDGER_PORT=bad),
                             cwd=self.tmp.name)
+
+    def test_port_zero_allowed_for_ephemeral_bind(self):
+        cfg = config.load(env=dict(self.env, OPENCODE_LEDGER_PORT="0"),
+                          cwd=self.tmp.name)
+        self.assertEqual(cfg.port, 0)
 
     def test_invalid_webhook_format_rejected(self):
         write_json(os.path.join(self.tmp.name, "ledger.json"),
