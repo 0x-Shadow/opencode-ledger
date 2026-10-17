@@ -11,7 +11,7 @@ name: opencode-ledger
 services:
   ledger:
     build: .
-    image: opencode-ledger:1.0.1
+    image: opencode-ledger:1.0.2
     container_name: opencode-ledger
     ports:
       - "8765:8765"
@@ -28,7 +28,7 @@ services:
       - ledger-state:/data/state
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python3", "-c", "import os,sys,urllib.request; p=os.environ.get('OPENCODE_LEDGER_PORT','8765'); req=urllib.request.Request('http://127.0.0.1:'+p+'/api/healthz'); t=os.environ.get('OPENCODE_LEDGER_TOKEN',''); req.add_header('X-Ledger-Token',t) if t else None; sys.exit(0 if urllib.request.urlopen(req, timeout=2).status==200 else 1)"]
+      test: ["CMD", "python3", "-c", "import os,sys,urllib.request; p=os.environ.get('OPENCODE_LEDGER_PORT','8765'); req=urllib.request.Request('http://127.0.0.1:'+p+'/api/ready'); t=os.environ.get('OPENCODE_LEDGER_TOKEN',''); req.add_header('X-Ledger-Token',t) if t else None; sys.exit(0 if urllib.request.urlopen(req, timeout=2).status==200 else 1)"]
       interval: 30s
       timeout: 3s
       start_period: 5s

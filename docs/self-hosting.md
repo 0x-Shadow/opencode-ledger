@@ -95,6 +95,7 @@ location / {
     auth_basic_user_file /etc/nginx/ledger.htpasswd;
     proxy_pass http://127.0.0.1:8765;
     proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
 
@@ -111,6 +112,9 @@ Hardening checklist for anything beyond localhost:
       included; scrape it over localhost or with credentials.
 - [ ] **Prefer the `Authorization` header over `?token=`** in URLs: query
       strings leak into proxy logs and browser history.
+- [ ] **Forward `X-Forwarded-Proto: https`** (Caddy does this automatically;
+      see the nginx snippet above): the `ledger_token` cookie is then marked
+      `Secure`.
 - [ ] **Webhook URLs must be `https://`** (the config validator enforces
       `http(s)`); payloads carry token totals and budget ratios.
 - [ ] **Rotate the token** if it ever appears in a screenshot, log or shell

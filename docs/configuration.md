@@ -25,11 +25,12 @@ overriding earlier ones:
 | `poll_seconds` | `OPENCODE_LEDGER_POLL` | `4` | UI poll cadence (browsers can override per-user). |
 | `stale_seconds` | `OPENCODE_LEDGER_STALE` | `30` | While stats are younger than this and the DB mtime is unchanged, refresh is skipped entirely. |
 | `state_file` | `OPENCODE_LEDGER_STATE_FILE` | `~/.local/state/opencode-ledger/state.json` | Alert dedup state; only file written. |
+| `output` | `OPENCODE_LEDGER_OUTPUT` | `stats.json` | Where the regenerated aggregate document is written (relative to the working directory unless absolute). Always written with `0600` permissions. |
 | `budgets.daily_tokens` | `..._BUDGET_DAILY_TOKENS` | — | Integer token limit per local day. |
 | `budgets.monthly_tokens` | `..._BUDGET_MONTHLY_TOKENS` | — | Integer token limit per calendar month. |
 | `budgets.daily_cost_usd` | `..._BUDGET_DAILY_COST` | — | USD (float) per local day. |
 | `budgets.monthly_cost_usd` | `..._BUDGET_MONTHLY_COST` | — | USD (float) per calendar month. |
-| `alerts.thresholds` | `..._ALERT_THRESHOLDS` | `[0.8, 1.0]` | Fractions of a budget that fire an alert. |
+| `alerts.thresholds` | `..._ALERT_THRESHOLDS` | `[0.8, 1.0]` | Positive finite fractions of a budget that fire an alert; values above `1.0` alert after the budget is exceeded. |
 | `alerts.webhook_url` | `..._WEBHOOK_URL` | — | POST target for alerts. Unset = no outbound traffic. |
 | `alerts.webhook_format` | `..._WEBHOOK_FORMAT` | `generic` | `generic`, `discord`, `slack`, `ntfy`. |
 | `pricing` | — | `{}` | Per-model price overrides, USD per **million** tokens. |
@@ -57,7 +58,9 @@ overriding earlier ones:
 ```
 
 Validation errors name the offending key and its source
-(`file:ledger.json`, `env:OPENCODE_LEDGER_PORT`, `cli`).
+(`file:ledger.json`, `env:OPENCODE_LEDGER_PORT`, `cli`). Non-finite numbers
+(`NaN`, `Infinity`) and booleans where numbers are expected are rejected, as
+are webhook URLs without a hostname or with embedded credentials.
 
 ## Cost estimation
 

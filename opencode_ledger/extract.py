@@ -12,6 +12,7 @@ import sqlite3
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 from . import __version__
 from .pricing import PricingTable
@@ -256,10 +257,10 @@ def load_session_meta(conn):
 
 
 def read_rows(conn):
-    """Assistant message rows as (session_id, data). Read-only by convention."""
+    """Assistant-message cursor yielding (session_id, data), streamed."""
     return conn.execute(
         "SELECT session_id, data FROM session_message WHERE type='assistant'"
-    ).fetchall()
+    )
 
 
 def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None,
@@ -268,14 +269,23 @@ def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None,
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"database not found: {db_path}")
     # mode=ro (not immutable=1) so committed WAL data is visible while
-    # OpenCode is running; busy_timeout guards against write locks.
-    uri = f"file:{db_path}?mode=ro"
+    # OpenCode is running; busy_timeout guards against write locks. The path
+    # is percent-encoded so reserved characters (?, #, %) in custom database
+    # filenames can't corrupt the URI.
+    uri = "file:" + quote(os.path.abspath(db_path)) + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.execute("PRAGMA busy_timeout=3000")
+    rows, skipped = [], 0
     try:
         try:
             session_meta = load_session_meta(conn)
-            raw_rows = read_rows(conn)
+            for sid, data in read_rows(conn):  # stream, don't materialise
+                parsed = parse_message(data)
+                if parsed is None:
+                    skipped += 1
+                    continue
+                parsed["session_id"] = sid
+                rows.append(parsed)
         except sqlite3.DatabaseError as e:
             raise DatabaseIncompatible(
                 f"unsupported database layout: {e}; expected the OpenCode "
@@ -285,15 +295,6 @@ def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None,
             ) from None
     finally:
         conn.close()
-
-    rows, skipped = [], 0
-    for sid, data in raw_rows:
-        parsed = parse_message(data)
-        if parsed is None:
-            skipped += 1
-            continue
-        parsed["session_id"] = sid
-        rows.append(parsed)
 
     stats = aggregate(rows, session_meta)
     stats["skipped_rows"] = skipped
@@ -305,7 +306,8 @@ def run(db_path=DEFAULT_DB, out_path=DEFAULT_OUT, pricing_table=None,
         parent = os.path.dirname(os.path.abspath(out_path))
         os.makedirs(parent, exist_ok=True)
         tmp = out_path + ".tmp"
-        with open(tmp, "w") as f:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(stats, f, indent=1)
         os.replace(tmp, out_path)
     return stats

@@ -103,8 +103,8 @@ def cmd_serve(args) -> int:
 def cmd_extract(args) -> int:
     cfg = _load_config(args)
     db_path = getattr(args, "db", None) or cfg.db_path
-    out_path = getattr(args, "out", None) or os.path.join(
-        os.getcwd(), "stats.json")
+    out_path = getattr(args, "out", None) or os.path.abspath(
+        os.path.expanduser(cfg.output))
     try:
         extract.main(db_path, out_path)
     except SystemExit as e:  # extract.main exits on a missing database

@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](#why)
 
-**Your personal token-usage ledger for OpenCode.** A private, self-hosted
+**Self-hosted observability and budget control for OpenCode.** A private
 dashboard that counts every token you have ever burned — lifetime odometer,
 model leaderboard, burn-rate charts, weekday × hour heatmap, projects, agents,
 estimated costs, budgets and alerts.
@@ -145,7 +145,8 @@ restarts do not spam you. Delivery is best-effort and never affects serving.
 | `/` | The dashboard (single HTML file) |
 | `/stats.json` (alias `/api/stats`) | Full aggregate document, `ETag` + 304 support |
 | `/api/summary` | Compact totals + budget status |
-| `/api/healthz` | Liveness + last extract info |
+| `/api/healthz` | Liveness (always 200) + last extract info |
+| `/api/ready` | Readiness — 503 while extraction is failing |
 | `/api/export.csv` | Daily aggregates as CSV download |
 | `/metrics` | Prometheus exposition |
 
@@ -182,6 +183,7 @@ See [SECURITY.md](SECURITY.md).
 ## Development
 
 ```bash
+make test       # run the stdlib-only regression suite (no pytest needed)
 make smoke      # boot the demo server and check every route answers 200
 make lint       # static checks (needs: pip install ruff)
 make demo       # browse synthetic data at http://localhost:8765/
@@ -189,6 +191,7 @@ make demo       # browse synthetic data at http://localhost:8765/
 
 - `opencode_ledger/` — the package: extractor, config, pricing, budgets, alerts,
   metrics, server, CLI, UI.
+- `tests/` — minimal regression suite (`make test`), synthetic data only.
 - `serve.py`, `extract.py`, `refresh.sh` — v0-compatible shims.
 - `Dockerfile`, `docker-compose.yml`, `deploy/` — deployment.
 - `docs/` — configuration, API and self-hosting references.

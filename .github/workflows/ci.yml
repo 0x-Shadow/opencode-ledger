@@ -37,6 +37,8 @@ jobs:
           python -m opencode_ledger version
       - name: Serve demo and check every route
         run: make smoke
+      - name: Run regression suite
+        run: make test
 
   docker:
     name: docker build + demo smoke test

@@ -1,10 +1,13 @@
 PY ?= python3
 SMOKE_PORT ?= 8799
 
-.PHONY: lint smoke serve demo docker
+.PHONY: lint test smoke serve demo docker
 
 lint:            ## static checks (needs: pip install ruff)
 	ruff check .
+
+test:            ## run the stdlib-only regression suite
+	$(PY) -m unittest discover -s tests -v
 
 smoke:           ## boot the demo server and check every route answers 200
 	@set -eu; \
@@ -16,7 +19,7 @@ smoke:           ## boot the demo server and check every route answers 200
 	  sleep 1; \
 	done; \
 	[ -n "$$ready" ] || { echo "smoke: server did not start"; exit 1; }; \
-	for url in / /stats.json /api/summary /api/healthz /api/export.csv /metrics; do \
+	for url in / /stats.json /api/summary /api/healthz /api/ready /api/export.csv /metrics; do \
 	  code=$$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$(SMOKE_PORT)$$url"); \
 	  if [ "$$code" != 200 ]; then echo "smoke: FAIL $$url -> $$code"; exit 1; fi; \
 	  echo "smoke: ok $$url"; \

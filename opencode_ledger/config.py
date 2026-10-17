@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
@@ -46,6 +47,7 @@ DEFAULTS = {
     "pricing": {},
     "pricing_file": None,
     "state_file": "~/.local/state/opencode-ledger/state.json",
+    "output": "stats.json",
 }
 
 # env var -> dotted config path
@@ -58,6 +60,7 @@ ENV_MAP = {
     "POLL": "poll_seconds",
     "STALE": "stale_seconds",
     "STATE_FILE": "state_file",
+    "OUTPUT": "output",
     "PRICING_FILE": "pricing_file",
     "BUDGET_DAILY_TOKENS": "budgets.daily_tokens",
     "BUDGET_MONTHLY_TOKENS": "budgets.monthly_tokens",
@@ -93,6 +96,7 @@ class Config:
     pricing: dict
     pricing_file: str | None
     state_file: str
+    output: str
     config_file: str | None = None
     sources: dict = field(default_factory=dict)
 
@@ -193,44 +197,52 @@ def _validate(cfg: Config, sources: dict, home: str):
     def fail(key, why):
         raise ConfigError(f"invalid {key!r} ({sources.get(key, 'cli')}): {why}")
 
+    def _num(v):
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+
     if not isinstance(cfg.host, str) or not cfg.host.strip():
         fail("host", "must be a non-empty string")
-    if not (0 <= cfg.port <= 65535):
-        fail("port", "must be 0..65535 (0 = any free port)")
-    if cfg.throttle_seconds < 0:
-        fail("throttle_seconds", "must be >= 0")
-    if cfg.poll_seconds < 1:
-        fail("poll_seconds", "must be >= 1")
-    if cfg.stale_seconds < 0:
-        fail("stale_seconds", "must be >= 0")
+    if (not _num(cfg.port) or not math.isfinite(cfg.port)
+            or not float(cfg.port).is_integer() or not (0 <= cfg.port <= 65535)):
+        fail("port", "must be an integer 0..65535 (0 = any free port)")
+    cfg.port = int(cfg.port)
+    for key, minimum in (("throttle_seconds", 0), ("poll_seconds", 1),
+                         ("stale_seconds", 0)):
+        val = getattr(cfg, key)
+        if not _num(val) or not math.isfinite(val) or val < minimum:
+            fail(key, f"must be a finite number >= {minimum}")
     if cfg.token is not None and not str(cfg.token).strip():
         fail("token", "must be non-empty when set")
     for bkey, bval in cfg.budgets.items():
-        if bval is not None and (not isinstance(bval, (int, float)) or bval <= 0):
-            fail(f"budgets.{bkey}", "must be a positive number or null")
+        if bval is not None and (not _num(bval) or not math.isfinite(bval)
+                                 or bval <= 0):
+            fail(f"budgets.{bkey}", "must be a positive finite number or null")
     fmt = cfg.alerts.get("webhook_format", "generic")
     if fmt not in WEBHOOK_FORMATS:
         fail("alerts.webhook_format", f"must be one of {', '.join(WEBHOOK_FORMATS)}")
     url = cfg.alerts.get("webhook_url")
-    if url:
-        if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
-            fail("alerts.webhook_url", "must be an http:// or https:// URL")
+    if url is not None:
+        parsed = urlparse(url) if isinstance(url, str) else None
+        if (parsed is None or parsed.scheme not in ("http", "https")
+                or not parsed.hostname or parsed.username or parsed.password):
+            fail("alerts.webhook_url",
+                 "must be an http(s) URL with a hostname and no credentials "
+                 "(or null)")
     thresholds = cfg.alerts.get("thresholds", [])
     if (not isinstance(thresholds, list) or not thresholds
-            or any(not isinstance(t, (int, float)) or t <= 0 for t in thresholds)):
-        fail("alerts.thresholds", "must be a non-empty list of positive numbers")
+            or any(not _num(t) or not math.isfinite(t) or t <= 0
+                   for t in thresholds)):
+        fail("alerts.thresholds",
+             "must be a non-empty list of positive finite numbers")
     cfg.alerts["thresholds"] = sorted(float(t) for t in thresholds)
-    url = cfg.alerts.get("webhook_url")
-    if url is not None and not (isinstance(url, str)
-                                and url.startswith(("http://", "https://"))):
-        fail("alerts.webhook_url", "must be an http(s) URL or null")
     if not isinstance(cfg.pricing, dict):
         fail("pricing", "must be an object of model -> price")
     for pkey, pval in cfg.pricing.items():
         if not isinstance(pval, dict) or not all(
-                isinstance(v, (int, float)) and v >= 0 for v in pval.values()):
-            fail(f"pricing.{pkey}", "must be an object of non-negative numbers")
-    for path_key in ("db_path", "state_file"):
+                _num(v) and math.isfinite(v) and v >= 0
+                for v in pval.values()):
+            fail(f"pricing.{pkey}", "must be an object of finite non-negative numbers")
+    for path_key in ("db_path", "state_file", "output"):
         val = getattr(cfg, path_key)
         if not isinstance(val, str) or not val.strip():
             fail(path_key, "must be a non-empty path")
@@ -311,6 +323,7 @@ def load(cli: dict | None = None, env: dict | None = None,
         pricing=merged["pricing"],
         pricing_file=merged["pricing_file"],
         state_file=merged["state_file"],
+        output=merged["output"],
         config_file=config_file,
         sources=sources,
     )
@@ -322,8 +335,8 @@ def describe(cfg: Config) -> list[dict]:
     """Effective settings as rows: {key, value, source}. Secrets are masked."""
     rows = []
     for key in ("db_path", "host", "port", "token", "throttle_seconds",
-                "poll_seconds", "stale_seconds", "state_file", "pricing_file",
-                "config_file"):
+                "poll_seconds", "stale_seconds", "state_file", "output",
+                "pricing_file", "config_file"):
         value = getattr(cfg, key)
         if key == "token" and value is not None:
             value = "***"

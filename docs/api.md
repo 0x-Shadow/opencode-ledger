@@ -66,16 +66,29 @@ Compact snapshot for scripts and status bars:
 
 ### `GET /api/healthz`
 
-Always `200`. `ok` is `true` when a stats document is available.
+Liveness endpoint — always `200` while the process is up; `ok` reports
+whether a stats document is available yet.
 
 ```json
-{ "ok": true, "version": "1.0.0", "schema": 2, "demo": false,
+{ "ok": true, "version": "1.0.2", "schema": 2, "demo": false,
   "db": "~/.local/share/opencode/opencode.db",
   "last_extract": "2026-10-17T12:00:00+00:00" }
 ```
 
-When extraction fails, `ok` is `false` and an `error` string is included —
-handy for container healthchecks.
+When extraction fails, `ok` is `false` and an `error` string is included.
+Because the status code stays `200`, use `/api/ready` (below) if your monitor
+only looks at HTTP status codes.
+
+### `GET /api/ready`
+
+Readiness endpoint: `200` when a stats document is available, `503` when
+extraction is failing (the body carries the error). The Docker healthcheck
+uses this route.
+
+```json
+{ "ready": true, "version": "1.0.2", "schema": 2,
+  "last_extract": "2026-10-17T12:00:00+00:00" }
+```
 
 ### `GET /api/export.csv`
 

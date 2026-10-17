@@ -19,6 +19,9 @@ read-only, aggregates it, and serves one HTML page plus a small JSON API on
   `OPENCODE_LEDGER_WEBHOOK_URL` — and then only budget alert summaries are
   POSTed to that URL.
 - The database is opened with `mode=ro`; the server cannot modify it.
+- The regenerated aggregate file (`stats.json`; path configurable via the
+  `output` setting) is written with `0600` permissions. It contains session
+  titles and project names — treat it as sensitive data.
 - The UI makes zero external requests (no CDNs, fonts or analytics).
 
 Because the dashboard exposes your usage (and session titles) over HTTP:

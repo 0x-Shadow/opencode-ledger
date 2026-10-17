@@ -5,6 +5,43 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-10-17
+
+### Security
+
+- **HEAD requests now require authentication and follow the same routing as
+  GET.** Previously the inherited `SimpleHTTPRequestHandler.do_HEAD` bypassed
+  auth and served the server's working directory to unauthenticated clients
+  (file metadata, directory listings, partial listings).
+- **Configuration validation hardened** — budgets, thresholds and pricing now
+  reject non-finite numbers (`NaN`, `Infinity`) and booleans; `port` must be an
+  integer; `alerts.webhook_url` must be an `http(s)` URL with a hostname and
+  no embedded credentials.
+- **`stats.json` is written with `0600` permissions** and its path is
+  configurable (`output` / `OPENCODE_LEDGER_OUTPUT`).
+- The `ledger_token` cookie is marked `Secure` when the request arrives with
+  `X-Forwarded-Proto: https` behind a TLS proxy.
+
+### Added
+
+- **`/api/ready`** — readiness endpoint (`200`/`503`) for orchestrators and
+  status-code-based monitors; the Docker healthcheck now uses it.
+  `/api/healthz` is documented as liveness-only.
+- **Regression suite** — a minimal stdlib-only `unittest` suite (`make test`,
+  no pytest) covering the parser, exact totals, incompatible databases,
+  pricing edge cases, budget thresholds and dedup, config validation, and
+  HTTP auth for GET *and* HEAD.
+
+### Fixed
+
+- **SQLite URIs are percent-encoded** — database paths containing reserved
+  characters (`?`, `#`, `%`, spaces) no longer open the wrong file or silently
+  lose read-only mode.
+- Extraction now streams rows instead of materialising them first (~14% less
+  peak memory on a 200k-message synthetic database, same runtime).
+- The `Server` header identifies the project instead of exposing the stock
+  `SimpleHTTP/0.6` handler.
+
 ## [1.0.1] — 2026-10-17
 
 ### Fixed

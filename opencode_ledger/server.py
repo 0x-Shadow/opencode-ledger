@@ -135,9 +135,11 @@ def make_handler(cfg, out_path: str, doc_root: str, demo_stats: dict | None = No
             for key, value in SECURITY_HEADERS.items():
                 self.send_header(key, value)
             if getattr(self, "_token_from_query", False):
+                proto = self.headers.get("X-Forwarded-Proto", "")
+                secure = "; Secure" if proto.split(",")[0].strip().lower() == "https" else ""
                 self.send_header(
                     "Set-Cookie",
-                    f"ledger_token={cfg.token}; Path=/; HttpOnly; SameSite=Lax")
+                    f"ledger_token={cfg.token}; Path=/; HttpOnly; SameSite=Lax{secure}")
             for key, value in (extra_headers or {}).items():
                 self.send_header(key, value)
             self.end_headers()
@@ -220,6 +222,24 @@ def make_handler(cfg, out_path: str, doc_root: str, demo_stats: dict | None = No
                 })
                 return
 
+            if path == "/api/ready":
+                try:
+                    self._refresh()
+                except Exception as e:
+                    self._send_json(503, {
+                        "ready": False, "version": __version__,
+                        "db": cfg.db_path, "error": str(e),
+                    })
+                    return
+                stats = state["stats"] or {}
+                ready = state["stats_json"] is not None
+                self._send_json(200 if ready else 503, {
+                    "ready": ready, "version": __version__,
+                    "schema": stats.get("schema"),
+                    "last_extract": stats.get("generated"),
+                })
+                return
+
             if path == "/metrics":
                 if not self._refresh_or_500():
                     return
@@ -251,13 +271,22 @@ def make_handler(cfg, out_path: str, doc_root: str, demo_stats: dict | None = No
 
             self._send_error_json(404, "not found")
 
+        def do_HEAD(self):
+            # HEAD must obey the same auth and routing as GET. Without this,
+            # the inherited SimpleHTTPRequestHandler.do_HEAD() would serve
+            # static files from the process CWD without any authentication.
+            self.do_GET()
+
+        def version_string(self):
+            return f"opencode-ledger/{__version__}"
+
     return Handler
 
 
 def run(cfg, demo: bool = False) -> None:
     """Serve until interrupted. demo=True serves synthetic data, no database."""
     doc_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-    out_path = os.path.join(os.getcwd(), "stats.json")
+    out_path = os.path.abspath(os.path.expanduser(cfg.output))
     demo_stats = None
     if demo:
         demo_stats = demo_mod.generate_stats()
