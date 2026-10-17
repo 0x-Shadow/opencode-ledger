@@ -45,7 +45,7 @@ class GenerateTests(unittest.TestCase):
         s = self.stats(days=10)
         dates = [datetime.strptime(d["date"], "%Y-%m-%d") for d in s["timeline"]]
         self.assertEqual(len(dates), 10)
-        for prev, cur in zip(dates, dates[1:]):
+        for prev, cur in zip(dates, dates[1:], strict=False):
             self.assertEqual((cur - prev).days, 1)
 
     def test_shape(self):

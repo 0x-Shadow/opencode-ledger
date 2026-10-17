@@ -138,7 +138,7 @@ def _coerce(dotted: str, value, source: str):
             value = str(value)
             return value if value else None
     except (TypeError, ValueError):
-        raise ConfigError(f"invalid value for {source} {dotted!r}: {value!r}")
+        raise ConfigError(f"invalid value for {source} {dotted!r}: {value!r}") from None
     return value
 
 
@@ -256,7 +256,7 @@ def load(cli: dict | None = None, env: dict | None = None,
             with open(config_file) as f:
                 file_data = json.load(f)
         except (OSError, json.JSONDecodeError) as e:
-            raise ConfigError(f"cannot read config file {config_file}: {e}")
+            raise ConfigError(f"cannot read config file {config_file}: {e}") from None
         if not isinstance(file_data, dict):
             raise ConfigError(f"config file {config_file} must contain a JSON object")
         _deep_merge(merged, file_data, f"file:{config_file}", sources)

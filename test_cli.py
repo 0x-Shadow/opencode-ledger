@@ -163,6 +163,12 @@ class ShimTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
         self.assertIn("serve", r.stdout)
 
+    def test_module_entrypoint(self):
+        r = subprocess.run([sys.executable, "-m", "opencode_ledger", "version"],
+                           cwd=ROOT, capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(__version__, r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

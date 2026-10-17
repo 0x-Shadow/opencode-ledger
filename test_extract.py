@@ -208,7 +208,7 @@ class AggregateTests(unittest.TestCase):
             make_row(model_id="b", provider="p2", inp=5,
                      ts=local_ms(2026, 3, 2, 10, 30)),
         ]
-        for i, r in enumerate(rows[:2]):
+        for r in rows[:2]:
             r["session_id"] = "s1"
         meta = {"s1": {"title": "My Session", "project": "proj"}}
         stats = extract.aggregate(rows, session_meta=meta)

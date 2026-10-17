@@ -1,0 +1,62 @@
+# Contributing
+
+Thanks for looking at opencode-ledger! It is deliberately small, so
+contributions are easy to review.
+
+## Ground rules
+
+These are load-bearing; pull requests that break them will be asked to change:
+
+1. **Zero runtime dependencies.** Stdlib only, Python 3.10+. Dev tools (ruff)
+   are fine as extras.
+2. **The database is read-only.** Always open `opencode.db` with
+   `mode=ro` and a busy timeout. Never write to the OpenCode data directory.
+3. **Aggregates only.** Never emit message content — counts, sums, timestamps,
+   model/provider/agent/project names are fine.
+4. **The UI is a single file** (`opencode_ledger/static/index.html`) with zero
+   external requests: no CDNs, no fonts, no analytics.
+
+## Development setup
+
+```bash
+git clone https://github.com/0x-Shadow/opencode-ledger
+cd opencode-ledger
+python3 -m unittest -q          # full suite, no install needed
+python3 serve.py --demo         # live demo at http://localhost:8765/
+```
+
+Optional tools:
+
+```bash
+pip install ruff                # lint
+ruff check .
+```
+
+## Tests
+
+- Every behaviour change needs a test. Bug fixes start with a failing test.
+- `python3 -m unittest -q` must be green before you open a PR.
+- `test_extract.py` includes a two-sided integration cross-check against
+  SQLite's own JSON aggregation — keep it honest.
+
+## Style
+
+- `ruff check .` must pass (`pyproject.toml` holds the config).
+- Match the surrounding code: stdlib idioms, small functions, no cleverness.
+- Docstrings for modules and public functions; comments explain *why*.
+
+## Pull requests
+
+1. One topic per PR; small diffs review faster.
+2. Describe *what changed and why*, plus how you verified it (exact commands).
+3. Update `CHANGELOG.md` under "Unreleased" for user-visible changes.
+4. Screenshots are welcome for UI changes (before/after).
+5. CI must pass: tests on 3.10–3.13, ruff, and a Docker build.
+
+## Reporting bugs
+
+Open a GitHub issue with the output of `opencode-ledger config --json`,
+your Python version, and steps to reproduce. Redact your token and, if you
+care, your project paths.
+
+Security issues: see [SECURITY.md](SECURITY.md).

@@ -13,6 +13,7 @@ ledger.json
 ledger_state.json
 
 # Tooling scratch
+.ruff_cache/
 .superpowers/
 .idea/
 .vscode/

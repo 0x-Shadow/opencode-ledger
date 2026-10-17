@@ -16,7 +16,7 @@
 - Python: stdlib only; no third-party packages.
 - UI: single `index.html`, inline CSS/JS, zero external requests; dark theme; responsive; respects `prefers-reduced-motion`; semantic headings + table markup.
 - Only aggregates in `stats.json` — never message text/content.
-- Project root: `/home/nick/Documents/projects/opencode-lifetime/`.
+- Project root: the repository checkout.
 - Git repo initialized at project root; commit after each task.
 
 ## Review Focus
@@ -68,7 +68,7 @@
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /home/nick/Documents/projects/opencode-lifetime && python3 -m unittest test_extract -v`
+Run: `cd <repo> && python3 -m unittest test_extract -v`
 Expected: FAIL/ERROR (ImportError — extract.py doesn't exist).
 
 - [ ] **Step 3: Implement `extract.py`**

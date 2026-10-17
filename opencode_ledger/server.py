@@ -18,10 +18,9 @@ from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__
+from . import __version__, extract
 from . import budget as budget_mod
 from . import demo as demo_mod
-from . import extract
 from .metrics import render as render_metrics
 
 SECURITY_HEADERS = {
