@@ -1,4 +1,4 @@
-"""Tests for serve.py — the live dashboard server."""
+"""Tests for opencode_ledger.server — routes, auth, ETag, demo mode."""
 import json
 import os
 import sqlite3
@@ -7,10 +7,12 @@ import tempfile
 import threading
 import time
 import unittest
+import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import serve
+
+from opencode_ledger import config, demo, server
 
 MSG_ID = 0
 
@@ -45,79 +47,253 @@ def make_db(path, n_messages=2, tokens_input=100):
     conn.close()
 
 
-class FakeDBLiveServerTests(unittest.TestCase):
+def build_cfg(tmp, db_path, **cli):
+    cli.setdefault("db_path", db_path)
+    cli.setdefault("throttle_seconds", 0.0)
+    cli.setdefault("state_file", os.path.join(tmp, "state.json"))
+    env = {"HOME": tmp, "XDG_CONFIG_HOME": os.path.join(tmp, ".config")}
+    return config.load(cli=cli, env=env, cwd=tmp)
+
+
+class ServerTestCase(unittest.TestCase):
+    """Base: fake DB + doc root with a tiny index.html."""
+
+    demo_stats = None
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
         self.db = os.path.join(self.tmp.name, "test.db")
-        self.stats_path = os.path.join(self.tmp.name, "stats.json")
-        make_db(self.db, n_messages=2, tokens_input=100)
-        self.handler = serve.make_handler(
-            db_path=self.db, out_path=self.stats_path,
-            doc_root=os.path.dirname(os.path.abspath(__file__)),
-            throttle=0.0)
-        self.server = serve.ThreadingHTTPServer(("127.0.0.1", 0), self.handler)
-        self.port = self.server.server_address[1]
-        self.thread = threading.Thread(target=self.server.serve_forever,
-                                       daemon=True)
-        self.thread.start()
+        self.out = os.path.join(self.tmp.name, "stats.json")
+        self.doc_root = os.path.join(self.tmp.name, "www")
+        os.makedirs(self.doc_root)
+        with open(os.path.join(self.doc_root, "index.html"), "w") as f:
+            f.write("<!DOCTYPE html><title>ledger test</title><p>odometer</p>")
+        if self.demo_stats is None:
+            make_db(self.db, n_messages=2, tokens_input=100)
+        self.cfg = build_cfg(self.tmp.name, self.db)
 
-    def tearDown(self):
+    def start(self, cfg=None):
+        handler = server.make_handler(cfg or self.cfg, self.out,
+                                      self.doc_root,
+                                      demo_stats=self.demo_stats)
+        self.server = server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.stop)
+
+    def stop(self):
         self.server.shutdown()
         self.server.server_close()
-        self.tmp.cleanup()
 
-    def get(self, path):
+    def get(self, path, headers=None):
         url = f"http://127.0.0.1:{self.port}{path}"
-        with urllib.request.urlopen(url, timeout=10) as r:
-            return r.status, r.read().decode()
+        req = urllib.request.Request(url, headers=headers or {})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return r.status, dict(r.headers), r.read().decode()
+        except urllib.error.HTTPError as e:
+            return e.code, dict(e.headers), e.read().decode()
 
-    def test_stats_endpoint_serves_aggregates(self):
-        status, body = self.get("/stats.json")
+
+class CoreRouteTests(ServerTestCase):
+    def setUp(self):
+        super().setUp()
+        self.start()
+
+    def test_stats_endpoint(self):
+        status, headers, body = self.get("/stats.json")
         self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "application/json")
+        self.assertEqual(headers["Cache-Control"], "no-store")
         stats = json.loads(body)
-        # 2 messages × (100 in + 1 out) = 202
+        self.assertEqual(stats["schema"], 2)
         self.assertEqual(stats["totals"]["all"], 202)
         self.assertEqual(stats["totals"]["messages"], 2)
+        self.assertIn("budget_status", stats)
+        self.assertIn("est_cost", stats["totals"])
+
+    def test_api_stats_matches_stats_json(self):
+        _, _, a = self.get("/stats.json")
+        _, _, b = self.get("/api/stats")
+        self.assertEqual(json.loads(a)["totals"], json.loads(b)["totals"])
+
+    def test_summary_endpoint(self):
+        status, _, body = self.get("/api/summary")
+        self.assertEqual(status, 200)
+        summary = json.loads(body)
+        self.assertEqual(summary["totals"]["all"], 202)
+        self.assertIn("version", summary)
+        self.assertIn("budget_status", summary)
+
+    def test_healthz(self):
+        status, _, body = self.get("/api/healthz")
+        self.assertEqual(status, 200)
+        health = json.loads(body)
+        self.assertTrue(health["ok"])
+        self.assertFalse(health["demo"])
+        self.assertEqual(health["version"], server.__version__)
+
+    def test_metrics_endpoint(self):
+        status, headers, body = self.get("/metrics")
+        self.assertEqual(status, 200)
+        self.assertIn("text/plain", headers["Content-Type"])
+        self.assertIn("opencode_ledger_tokens_total 202", body)
+
+    def test_export_csv(self):
+        status, headers, body = self.get("/api/export.csv")
+        self.assertEqual(status, 200)
+        self.assertIn("text/csv", headers["Content-Type"])
+        self.assertIn("attachment", headers["Content-Disposition"])
+        lines = body.strip().splitlines()
+        self.assertEqual(lines[0], "date,tokens,input,output,reasoning,"
+                                   "cache_read,cache_write,messages,cost,est_cost")
+        self.assertEqual(len(lines), 2)  # header + one active day
+        self.assertIn("202", lines[1])
+
+    def test_index_served_with_security_headers(self):
+        status, headers, body = self.get("/")
+        self.assertEqual(status, 200)
+        self.assertIn("text/html", headers["Content-Type"])
+        self.assertIn("odometer", body)
+        self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(headers["X-Frame-Options"], "DENY")
+        self.assertIn("default-src 'none'", headers["Content-Security-Policy"])
+
+    def test_unknown_route_404(self):
+        status, _, _ = self.get("/nope")
+        self.assertEqual(status, 404)
 
     def test_stats_reflects_new_messages_live(self):
-        _, body = self.get("/stats.json")
+        _, _, body = self.get("/stats.json")
         before = json.loads(body)["totals"]["all"]
-        make_db(self.db, n_messages=3, tokens_input=100)  # +3 messages
-        # mtime granularity: force a newer mtime
+        make_db(self.db, n_messages=3, tokens_input=100)
         os.utime(self.db, (time.time() + 2, time.time() + 2))
-        _, body2 = self.get("/stats.json")
-        after = json.loads(body2)["totals"]["all"]
-        self.assertEqual(after, before + 3 * 101)
+        _, _, body2 = self.get("/stats.json")
+        self.assertEqual(json.loads(body2)["totals"]["all"], before + 3 * 101)
 
+    def test_etag_and_304(self):
+        status, headers, _ = self.get("/stats.json")
+        self.assertEqual(status, 200)
+        etag = headers["ETag"]
+        self.assertTrue(etag.startswith('"'))
+        status2, _, _ = self.get("/stats.json", headers={"If-None-Match": etag})
+        self.assertEqual(status2, 304)
+
+    def test_etag_changes_when_data_changes(self):
+        _, headers, _ = self.get("/stats.json")
+        make_db(self.db, n_messages=3, tokens_input=100)
+        os.utime(self.db, (time.time() + 2, time.time() + 2))
+        _, headers2, _ = self.get("/stats.json")
+        self.assertNotEqual(headers["ETag"], headers2["ETag"])
+
+    def test_budget_status_populated(self):
+        cfg = build_cfg(self.tmp.name, self.db, budgets={"daily_tokens": 100})
+        self.stop()
+        self.start(cfg)
+        _, _, body = self.get("/stats.json")
+        status = json.loads(body)["budget_status"]
+        self.assertEqual(len(status), 1)
+        self.assertEqual(status[0]["id"], "daily_tokens")
+        _, _, metrics_body = self.get("/metrics")
+        self.assertIn('opencode_ledger_budget_used_ratio{budget="daily_tokens"',
+                      metrics_body)
+
+
+class ThrottleTests(ServerTestCase):
     def test_throttle_serves_cached_between_extractions(self):
-        _, warm = self.get("/stats.json")  # warm the cache first
+        self.start()
+        _, _, warm = self.get("/stats.json")
         self.assertEqual(json.loads(warm)["totals"]["all"], 202)
-        self.handler.throttle = 60.0  # effectively disable re-extraction
+        self.cfg.throttle_seconds = 60.0
         make_db(self.db, n_messages=4, tokens_input=100)
         os.utime(self.db, (time.time() + 2, time.time() + 2))
-        _, body = self.get("/stats.json")
-        # still the cached 202 (2 msgs), not 606 (6 msgs)
+        _, _, body = self.get("/stats.json")
         self.assertEqual(json.loads(body)["totals"]["all"], 202)
 
-    def test_index_served(self):
-        status, body = self.get("/")
+
+class ErrorTests(ServerTestCase):
+    def test_missing_db_returns_500_json_not_crash(self):
+        cfg = build_cfg(self.tmp.name, os.path.join(self.tmp.name, "nope.db"))
+        self.start(cfg)
+        status, _, body = self.get("/stats.json")
+        self.assertEqual(status, 500)
+        self.assertIn("error", json.loads(body))
+        status2, _, body2 = self.get("/api/healthz")
+        self.assertEqual(status2, 200)
+        self.assertFalse(json.loads(body2)["ok"])
+
+
+class AuthTests(ServerTestCase):
+    def setUp(self):
+        super().setUp()
+        self.cfg = build_cfg(self.tmp.name, self.db, token="sekrit")
+        self.start()
+
+    def test_all_routes_require_auth(self):
+        for path in ("/", "/stats.json", "/api/stats", "/api/summary",
+                     "/api/healthz", "/metrics", "/api/export.csv"):
+            status, _, _ = self.get(path)
+            self.assertEqual(status, 401, path)
+
+    def test_wrong_token_rejected(self):
+        status, _, _ = self.get("/stats.json",
+                                headers={"Authorization": "Bearer wrong"})
+        self.assertEqual(status, 401)
+
+    def test_bearer_accepted(self):
+        status, _, body = self.get("/stats.json",
+                                   headers={"Authorization": "Bearer sekrit"})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["totals"]["all"], 202)
+
+    def test_header_token_accepted(self):
+        status, _, _ = self.get("/api/summary",
+                                headers={"X-Ledger-Token": "sekrit"})
+        self.assertEqual(status, 200)
+
+    def test_query_token_accepted_and_sets_cookie(self):
+        status, headers, _ = self.get("/api/summary?token=sekrit")
+        self.assertEqual(status, 200)
+        self.assertIn("ledger_token=sekrit", headers.get("Set-Cookie", ""))
+
+    def test_cookie_accepted(self):
+        status, _, _ = self.get("/api/summary",
+                                headers={"Cookie": "ledger_token=sekrit"})
+        self.assertEqual(status, 200)
+
+    def test_page_reachable_with_cookie(self):
+        status, _, body = self.get("/", headers={"Cookie": "ledger_token=sekrit"})
         self.assertEqual(status, 200)
         self.assertIn("odometer", body)
 
-    def test_missing_db_returns_500_not_crash(self):
-        bad = serve.make_handler(
-            db_path=os.path.join(self.tmp.name, "nope.db"),
-            out_path=self.stats_path, doc_root=self.tmp.name, throttle=0.0)
-        server = serve.ThreadingHTTPServer(("127.0.0.1", 0), bad)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
-        try:
-            url = f"http://127.0.0.1:{server.server_address[1]}/stats.json"
-            with self.assertRaises(urllib.error.HTTPError) as ctx:
-                urllib.request.urlopen(url, timeout=10)
-            self.assertEqual(ctx.exception.code, 500)
-        finally:
-            server.shutdown()
-            server.server_close()
+    def test_www_authenticate_header(self):
+        _, headers, _ = self.get("/stats.json")
+        self.assertIn("Bearer", headers.get("WWW-Authenticate", ""))
+
+
+class DemoModeTests(ServerTestCase):
+    demo_stats = demo.generate_stats(days=10, seed=5)
+
+    def setUp(self):
+        super().setUp()
+        self.start()
+
+    def test_demo_serves_without_db(self):
+        self.assertFalse(os.path.exists(self.db))
+        status, _, body = self.get("/stats.json")
+        self.assertEqual(status, 200)
+        self.assertGreater(json.loads(body)["totals"]["all"], 0)
+
+    def test_healthz_flags_demo(self):
+        _, _, body = self.get("/api/healthz")
+        health = json.loads(body)
+        self.assertTrue(health["demo"])
+        self.assertTrue(health["ok"])
+
+    def test_demo_metrics(self):
+        _, _, body = self.get("/metrics")
+        self.assertIn("opencode_ledger_tokens_total", body)
 
 
 if __name__ == "__main__":
