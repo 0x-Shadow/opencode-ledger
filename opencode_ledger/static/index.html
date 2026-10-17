@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenCode — Token Ledger</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2316130f'/%3E%3Crect x='6' y='6' width='20' height='20' fill='none' stroke='%23c1362f' stroke-width='3'/%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   OpenCode Token Ledger — newsprint ledger, with a dark
+   "mission control" theme. Zero external requests.
+   ============================================================ */
+:root {
+  color-scheme: light;
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --step--1: 0.75rem;  --step-0: 1rem;    --step-1: 1.333rem;
+  --step-2:  1.777rem; --step-3: 2.369rem; --step-4: 3.157rem;
+  --step-5:  4.209rem; --step-6: 5.61rem;
+
+  --space-3xs: 0.25rem; --space-2xs: 0.5rem; --space-xs: 0.75rem;
+  --space-s:   1rem;    --space-m:   1.5rem; --space-l:  2rem;
+  --space-xl:  3rem;    --space-2xl: 4.5rem;
+
+  /* COLOR — newsprint */
+  --base:    #f4f1ea;
+  --surface: #ffffff;
+  --ink:     #16130f;
+  --ink-2:   #55504a;
+  --ink-3:   #6e685f;
+  --line:    #d8d2c6;
+  --accent:  #c1362f;
+  --hover:   #faf7f0;
+  --heat-0:  #ece8df;
+  --heat-1:  #f0cdc9;
+  --heat-2:  #e19b94;
+  --heat-3:  #d3695e;
+  --heat-4:  #c1362f;
+  --heat-5:  #8f241f;
+
+  --radius: 0;
+  --border: 1px solid var(--line);
+  --dur-fast: 120ms; --dur: 220ms; --dur-slow: 420ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --base:    #0b0d0c;
+  --surface: #121615;
+  --ink:     #d8e2d6;
+  --ink-2:   #9aa89a;
+  --ink-3:   #6f7d6f;
+  --line:    #232a27;
+  --accent:  #35c46a;
+  --hover:   #161b19;
+  --heat-0:  #161b19;
+  --heat-1:  #1d3a29;
+  --heat-2:  #22623a;
+  --heat-3:  #2b8a4c;
+  --heat-4:  #35c46a;
+  --heat-5:  #7ce8a1;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-theme="auto"] {
+    color-scheme: dark;
+    --base:    #0b0d0c;  --surface: #121615;
+    --ink:     #d8e2d6;  --ink-2:   #9aa89a;  --ink-3: #6f7d6f;
+    --line:    #232a27;  --accent:  #35c46a;  --hover: #161b19;
+    --heat-0:  #161b19;  --heat-1:  #1d3a29;  --heat-2: #22623a;
+    --heat-3:  #2b8a4c;  --heat-4:  #35c46a;  --heat-5: #7ce8a1;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--base); color: var(--ink);
+  font-family: var(--font-display); font-size: var(--step-0);
+  line-height: 1.5;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 var(--space-m); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.skip-link { position: absolute; left: -9999px; background: var(--ink); color: var(--base);
+  padding: var(--space-2xs) var(--space-s); font-family: var(--font-mono); font-size: var(--step--1); }
+.skip-link:focus { left: var(--space-s); top: var(--space-s); z-index: 99; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: inherit; color: inherit; }
+
+header.site { border-bottom: 3px double var(--ink); padding: var(--space-m) 0; }
+.site-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--space-2xs); }
+.wordmark { font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-2); }
+.wordmark b { color: var(--accent); font-weight: 700; }
+.meta { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); }
+.header-right { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+
+.icon-btn { background: var(--surface); border: var(--border); padding: 0 var(--space-2xs);
+  font-family: var(--font-mono); font-size: var(--step--1); cursor: pointer; }
+.icon-btn:hover { border-color: var(--ink); }
+
+/* LIVE badge */
+.live-badge { display: inline-flex; align-items: center; gap: var(--space-3xs);
+  font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.14em; color: var(--accent);
+  border: 1px solid var(--accent); padding: 0 var(--space-2xs); }
+.live-badge .dot { width: 0.5rem; height: 0.5rem; background: var(--accent);
+  animation: pulse 2s var(--ease) infinite; }
+.live-badge.offline { color: var(--ink-3); border-color: var(--ink-3); }
+.live-badge.offline .dot { background: var(--ink-3); animation: none; }
+.live-badge.paused { color: var(--ink-2); border-color: var(--ink-2); }
+.live-badge.paused .dot { background: var(--ink-2); animation: none; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .live-badge .dot { animation: none; } }
+
+/* HERO */
+.hero { padding: var(--space-2xl) 0 var(--space-xl); text-align: center; }
+.hero .kicker { font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-2);
+  margin-bottom: var(--space-m); }
+#odometer { font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(2.4rem, 10.5vw, var(--step-6)); font-weight: 700;
+  line-height: 1.05; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+#odometer .comma { color: var(--accent); font-weight: 400; }
+.hero .unit { font-family: var(--font-mono); font-size: var(--step-1); color: var(--ink-3); margin-top: var(--space-2xs); }
+.hero .equivalence { margin-top: var(--space-l); font-size: var(--step-0);
+  color: var(--ink-2); max-width: 62ch; margin-left: auto; margin-right: auto; }
+.hero .equivalence b { color: var(--accent); font-weight: 700; }
+
+/* RANGE CHIPS */
+.range-chips { margin-top: var(--space-m); display: inline-flex; border: var(--border); background: var(--surface); }
+.range-chips button { background: none; border: none; border-left: var(--border);
+  padding: var(--space-3xs) var(--space-xs); font-family: var(--font-mono);
+  font-size: var(--step--1); cursor: pointer; color: var(--ink-2); }
+.range-chips button:first-child { border-left: none; }
+.range-chips button[aria-pressed="true"] { background: var(--ink); color: var(--base); }
+.range-chips button:hover { color: var(--ink); }
+.range-chips button[aria-pressed="true"]:hover { color: var(--base); }
+
+/* STATS */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr);
+  border-top: var(--border); border-bottom: 3px double var(--ink); margin-bottom: var(--space-2xl); }
+.stats > div { padding: var(--space-m) var(--space-s); border-left: var(--border); text-align: center; }
+.stats > div:first-child { border-left: none; }
+.stats > div:nth-child(4n+1) { border-left: none; }
+.stats > div:nth-child(n+5) { border-top: var(--border); }
+.stats dt { font-family: var(--font-mono); font-size: var(--step--1);
+  text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3); margin-bottom: var(--space-2xs); }
+.stats dd { font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-1); font-weight: 700; overflow-wrap: anywhere; }
+.stats dd .sub { display: block; font-size: var(--step--1); font-weight: 400; color: var(--ink-3); }
+
+/* SECTIONS */
+section { margin-bottom: var(--space-2xl); }
+h2 { font-family: var(--font-mono); font-size: var(--step--1);
+  text-transform: uppercase; letter-spacing: 0.18em; color: var(--ink-2);
+  font-weight: 700; border-bottom: var(--border); padding-bottom: var(--space-2xs);
+  margin-bottom: var(--space-m); }
+h2 .n { color: var(--accent); }
+h2 .hint { float: right; text-transform: none; letter-spacing: 0; color: var(--ink-3); font-weight: 400; }
+
+/* STACKED BAR + LEGEND */
+.stack { display: flex; height: var(--space-l); border: var(--border); background: var(--surface); }
+.stack span { display: block; height: 100%; }
+.legend { list-style: none; margin-top: var(--space-s);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2xs) var(--space-m); }
+.legend li { display: flex; align-items: center; gap: var(--space-2xs);
+  font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-2); }
+.legend .sw { width: 0.75rem; height: 0.75rem; flex: none; border: 1px solid var(--ink); }
+.legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* TABLES */
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: var(--border); }
+caption { text-align: left; font-family: var(--font-mono); font-size: var(--step--1);
+  color: var(--ink-3); padding-bottom: var(--space-2xs); }
+th, td { text-align: left; padding: var(--space-2xs) var(--space-xs);
+  border-bottom: var(--border); font-size: var(--step--1); }
+th { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-2); border-bottom: 2px solid var(--ink); white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--hover); }
+td .bar-cell { display: flex; align-items: center; gap: var(--space-2xs); }
+td .bar { height: 0.6rem; background: var(--accent); flex: none; min-width: 1px; }
+.model-name { font-family: var(--font-mono); font-weight: 700; }
+.model-prov, .dim { color: var(--ink-3); font-family: var(--font-mono); }
+.empty { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); padding: var(--space-s) 0; }
+
+/* CHARTS */
+.chart { border: var(--border); background: var(--surface); padding: var(--space-s); overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .bar-d { fill: var(--ink); }
+.chart .bar-d:hover { fill: var(--accent); }
+.chart .axis { font-family: var(--font-mono); font-size: 9px; fill: var(--ink-3); }
+.chart .gridline { stroke: var(--line); stroke-width: 1; }
+.chart-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-m); }
+@media (min-width: 860px) { .chart-grid { grid-template-columns: 1fr 1fr; } }
+
+/* BUDGETS */
+.budget { border: var(--border); background: var(--surface); padding: var(--space-s) var(--space-m); margin-bottom: var(--space-s); }
+.budget .budget-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-s); flex-wrap: wrap; }
+.budget .budget-name { font-family: var(--font-mono); font-size: var(--step--1);
+  text-transform: uppercase; letter-spacing: 0.1em; }
+.budget .budget-figures { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--step--1); color: var(--ink-2); }
+.budget .budget-track { height: 0.75rem; border: var(--border); margin-top: var(--space-2xs); background: var(--base); }
+.budget .budget-fill { height: 100%; background: var(--ink); }
+.budget.warn .budget-fill { background: var(--accent); }
+.budget.over .budget-fill { background: var(--accent); }
+.budget.over .budget-figures { color: var(--accent); font-weight: 700; }
+
+/* HEATMAP */
+.heatmap-scroll { overflow-x: auto; }
+.heatmap { display: grid; grid-template-columns: auto repeat(24, minmax(14px, 1fr));
+  gap: 2px; min-width: 560px; }
+.heatmap .hm-label { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3);
+  align-self: center; white-space: nowrap; }
+.hm-cell { aspect-ratio: 1; background: var(--heat-0); border: 1px solid var(--base); }
+.hm-cell[data-l="1"] { background: var(--heat-1); }
+.hm-cell[data-l="2"] { background: var(--heat-2); }
+.hm-cell[data-l="3"] { background: var(--heat-3); }
+.hm-cell[data-l="4"] { background: var(--heat-4); }
+.hm-cell[data-l="5"] { background: var(--heat-5); }
+.heatmap-legend { display: flex; align-items: center; gap: var(--space-3xs);
+  font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3);
+  margin-top: var(--space-2xs); }
+.heatmap-legend .hm-cell { width: 0.9rem; aspect-ratio: auto; height: 0.9rem; }
+
+/* SESSIONS */
+.session-row { display: flex; justify-content: space-between; gap: var(--space-s);
+  padding: var(--space-2xs) 0; border-bottom: var(--border); align-items: baseline; }
+.session-row:last-child { border-bottom: none; }
+.session-title { font-size: var(--step-0); }
+.session-meta { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); display: block; }
+.session-tok { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; text-align: right; }
+.session-tok .sub { display: block; font-weight: 400; font-size: var(--step--1); color: var(--ink-3); }
+
+/* PANELS */
+.panel { border: 2px solid var(--accent); background: var(--surface); padding: var(--space-m);
+  font-family: var(--font-mono); font-size: var(--step--1); margin-bottom: var(--space-l); }
+.panel h2 { border: none; color: var(--accent); float: none; }
+.panel code { background: var(--base); padding: 0 var(--space-3xs); border: var(--border); }
+.panel .row { display: flex; gap: var(--space-2xs); margin-top: var(--space-2xs); flex-wrap: wrap; }
+.panel input { font: inherit; padding: var(--space-3xs) var(--space-2xs);
+  border: var(--border); background: var(--base); color: var(--ink); }
+.panel button, .btn { font-family: var(--font-mono); font-size: var(--step--1);
+  background: var(--ink); color: var(--base); border: 1px solid var(--ink);
+  padding: var(--space-3xs) var(--space-xs); cursor: pointer; }
+.panel button:hover, .btn:hover { background: var(--accent); border-color: var(--accent); }
+
+/* FOOTER */
+footer.site { border-top: 3px double var(--ink); padding: var(--space-m) 0 var(--space-xl); }
+footer.site p { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); }
+footer.site a { color: var(--ink-2); }
+
+/* DIALOG */
+dialog#settings-dialog { margin: auto; border: 2px solid var(--ink); background: var(--surface);
+  color: var(--ink); padding: 0; max-width: 520px; width: calc(100% - 2rem); }
+dialog#settings-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.settings-head { display: flex; justify-content: space-between; align-items: center;
+  border-bottom: var(--border); padding: var(--space-s) var(--space-m); }
+.settings-head h2 { border: none; margin: 0; float: none; }
+.settings-body { padding: var(--space-m); display: grid; gap: var(--space-s);
+  font-family: var(--font-mono); font-size: var(--step--1); }
+.settings-body fieldset { border: var(--border); padding: var(--space-s); }
+.settings-body legend { padding: 0 var(--space-3xs); text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--ink-2); font-size: var(--step--1); }
+.settings-body label { display: flex; align-items: center; gap: var(--space-2xs); }
+.settings-body select, .settings-body input[type="password"], .settings-body input[type="number"] {
+  font: inherit; padding: var(--space-3xs) var(--space-2xs); border: var(--border);
+  background: var(--base); color: var(--ink); width: 100%; }
+.settings-body .row { display: flex; gap: var(--space-2xs); flex-wrap: wrap; align-items: center; }
+.settings-foot { border-top: var(--border); padding: var(--space-s) var(--space-m);
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-s); flex-wrap: wrap; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stats > div:nth-child(odd) { border-left: none; }
+  .stats > div { border-top: var(--border); }
+  .stats > div:nth-child(-n+2) { border-top: none; }
+  .stats > div:nth-child(n+3) { border-top: var(--border); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <div class="wrap site-row">
+    <p class="wordmark"><b aria-hidden="true">■</b> OpenCode · Token Ledger</p>
+    <div class="header-right">
+      <span id="live-badge" class="live-badge" hidden><span class="dot" aria-hidden="true"></span><span id="live-text">LIVE</span></span>
+      <span class="meta" id="generated">loading…</span>
+      <button id="settings-btn" class="icon-btn" type="button" aria-haspopup="dialog">Settings</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <div class="wrap">
+    <div id="panels" aria-live="polite"></div>
+
+    <div class="hero">
+      <p class="kicker" id="hero-kicker">Total tokens consumed, all models, all time</p>
+      <p id="odometer" aria-hidden="true">—</p>
+      <p class="sr-only" id="odometer-sr"></p>
+      <p class="unit">tokens</p>
+      <p class="equivalence" id="equivalence"></p>
+      <div class="range-chips" id="range-chips" role="group" aria-label="Time range"></div>
+    </div>
+
+    <dl class="stats" id="stats"></dl>
+
+    <section aria-labelledby="h-budgets" id="budget-section" hidden>
+      <h2 id="h-budgets"><span class="n">◆</span> Budgets</h2>
+      <div id="budgets"></div>
+    </section>
+
+    <section aria-labelledby="h-split">
+      <h2 id="h-split"><span class="n">01</span> · Where the tokens went <span class="hint" id="split-hint"></span></h2>
+      <div class="stack" id="stack" role="img" aria-label="Token split by category"></div>
+      <ul class="legend" id="legend"></ul>
+    </section>
+
+    <section aria-labelledby="h-models">
+      <h2 id="h-models"><span class="n">02</span> · Model leaderboard <span class="hint" id="models-hint"></span></h2>
+      <table id="models-table">
+        <caption>Models ranked by tokens in the selected range. Estimated cost uses list prices — override in config for accuracy.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">Provider</th>
+            <th scope="col" class="num">Messages</th>
+            <th scope="col" class="num">Tokens</th>
+            <th scope="col" class="num">Est. cost</th>
+            <th scope="col">Share</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="h-providers">
+      <h2 id="h-providers"><span class="n">03</span> · Provider share <span class="hint" id="providers-hint"></span></h2>
+      <table id="providers-table">
+        <caption>Tokens and messages per provider in the selected range.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Provider</th>
+            <th scope="col" class="num">Messages</th>
+            <th scope="col" class="num">Tokens</th>
+            <th scope="col">Share</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="h-timeline">
+      <h2 id="h-timeline"><span class="n">04</span> · Burn rate</h2>
+      <div class="chart-grid">
+        <div>
+          <table class="sr-only" id="daily-table"><caption>Daily token totals</caption><thead><tr><th scope="col">Date</th><th scope="col">Tokens</th></tr></thead><tbody></tbody></table>
+          <div class="chart" id="daily-chart" role="img" aria-label="Daily token usage bar chart; equivalent data in the daily totals table"></div>
+        </div>
+        <div>
+          <table class="sr-only" id="monthly-table"><caption>Monthly token totals</caption><thead><tr><th scope="col">Month</th><th scope="col">Tokens</th></tr></thead><tbody></tbody></table>
+          <div class="chart" id="monthly-chart" role="img" aria-label="Monthly token usage bar chart; equivalent data in the monthly totals table"></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-heat">
+      <h2 id="h-heat"><span class="n">05</span> · When you burn <span class="hint">all time · local time · Mon–Sun × 24h</span></h2>
+      <div class="heatmap-scroll">
+        <table class="sr-only" id="heatmap-table"><caption>Tokens by weekday</caption><thead><tr><th scope="col">Weekday</th><th scope="col">Tokens</th></tr></thead><tbody></tbody></table>
+        <div class="heatmap" id="heatmap" role="img" aria-label="Activity heatmap of tokens by weekday and hour"></div>
+      </div>
+      <p class="heatmap-legend" aria-hidden="true">less
+        <span class="hm-cell" data-l="0"></span><span class="hm-cell" data-l="1"></span><span class="hm-cell" data-l="2"></span><span class="hm-cell" data-l="3"></span><span class="hm-cell" data-l="4"></span><span class="hm-cell" data-l="5"></span>
+      more</p>
+    </section>
+
+    <section aria-labelledby="h-projects">
+      <h2 id="h-projects"><span class="n">06</span> · Projects <span class="hint">all time</span></h2>
+      <table id="projects-table">
+        <caption>Token usage per project (from session working directories).</caption>
+        <thead><tr>
+          <th scope="col">Project</th>
+          <th scope="col" class="num">Sessions</th>
+          <th scope="col" class="num">Messages</th>
+          <th scope="col" class="num">Tokens</th>
+          <th scope="col" class="num">Est. cost</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="h-agents">
+      <h2 id="h-agents"><span class="n">07</span> · Agents <span class="hint">all time</span></h2>
+      <table id="agents-table">
+        <caption>Token usage per OpenCode agent.</caption>
+        <thead><tr>
+          <th scope="col">Agent</th>
+          <th scope="col" class="num">Messages</th>
+          <th scope="col" class="num">Tokens</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="h-sessions">
+      <h2 id="h-sessions"><span class="n">08</span> · Heaviest sessions <span class="hint">all time</span></h2>
+      <div id="sessions"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Data source: local <code>opencode.db</code> — read-only, aggregates only, nothing leaves this machine.
+    Run <code>opencode-ledger check</code> in cron for budget alerts. ·
+    <span id="about-version"></span></p>
+  </div>
+</footer>
+
+<dialog id="settings-dialog" aria-labelledby="settings-title">
+  <div class="settings-head">
+    <h2 id="settings-title"><span class="n">■</span> Settings</h2>
+    <button class="btn" type="button" id="settings-close">Close</button>
+  </div>
+  <div class="settings-body">
+    <fieldset>
+      <legend>Appearance</legend>
+      <label>Theme
+        <select id="set-theme">
+          <option value="auto">Auto (system)</option>
+          <option value="light">Newsprint (light)</option>
+          <option value="dark">Mission control (dark)</option>
+        </select>
+      </label>
+      <label style="margin-top:.5rem"><input type="checkbox" id="set-motion"> Animate the odometer</label>
+    </fieldset>
+    <fieldset>
+      <legend>Live data</legend>
+      <label><input type="checkbox" id="set-poll"> Auto-refresh</label>
+      <label>Interval (seconds)
+        <input type="number" id="set-poll-interval" min="2" max="3600" step="1">
+      </label>
+    </fieldset>
+    <fieldset>
+      <legend>Server token (if auth is enabled)</legend>
+      <label>Token
+        <input type="password" id="set-token" autocomplete="off" placeholder="X-Ledger-Token">
+      </label>
+      <div class="row" style="margin-top:.5rem">
+        <button class="btn" type="button" id="set-token-save">Save token</button>
+        <button class="btn" type="button" id="set-token-clear">Clear</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Export</legend>
+      <div class="row">
+        <button class="btn" type="button" id="export-csv">Download CSV (daily)</button>
+        <button class="btn" type="button" id="export-json">Download JSON (stats)</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>About</legend>
+      <p id="about-block" class="dim">loading…</p>
+    </fieldset>
+  </div>
+  <div class="settings-foot">
+    <button class="btn" type="button" id="settings-reset">Reset all settings</button>
+    <span class="dim" id="settings-note">Stored in this browser only.</span>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* ================= helpers ================= */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[c]));
+const exact = (n) => Number(n || 0).toLocaleString("en-US");
+const fmt = (n) => {
+  n = Number(n || 0);
+  if (n >= 1e12) return (n / 1e12).toFixed(2) + "T";
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return String(n);
+};
+const money = (n) => n == null ? "—" : "$" + Number(n).toFixed(2);
+const fmtDate = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso) : d.toLocaleDateString("en-US",
+    { year: "numeric", month: "short", day: "numeric" });
+};
+const todayKey = () => {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")
+    + "-" + String(d.getDate()).padStart(2, "0");
+};
+/* ================= persisted settings ================= */
+const SETTINGS = {
+  theme: localStorage.getItem("ledger_theme") || "auto",
+  range: localStorage.getItem("ledger_range") || "all",
+  poll: localStorage.getItem("ledger_poll") !== "0",
+  pollInterval: Math.max(2, parseInt(localStorage.getItem("ledger_poll_interval") || "4", 10) || 4),
+  motion: localStorage.getItem("ledger_motion") !== "0",
+  token: localStorage.getItem("ledger_token") || "",
+};
+function saveSetting(key, value) {
+  localStorage.setItem("ledger_" + key, String(value));
+}
+const REDUCED = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const RANGES = [
+  { id: "today", label: "Today", days: 1 },
+  { id: "7d", label: "7 days", days: 7 },
+  { id: "30d", label: "30 days", days: 30 },
+  { id: "90d", label: "90 days", days: 90 },
+  { id: "all", label: "All time", days: null },
+];
+
+/* ================= state ================= */
+let S = null;                 // latest stats
+let currentGenerated = null;  // dedupe renders between polls
+let lastTotal = 0;            // odometer animation origin
+let pollTimer = null;
+
+/* ================= data ================= */
+function apiFetch(path) {
+  const headers = {};
+  if (SETTINGS.token) headers["X-Ledger-Token"] = SETTINGS.token;
+  return fetch(path, { cache: "no-store", headers });
+}
+
+function primeFetch() {
+  const headers = {};
+  if (SETTINGS.token) headers["X-Ledger-Token"] = SETTINGS.token;
+  fetch("./stats.json", { cache: "no-store", headers })
+    .then((r) => { if (!r.ok) throw Object.assign(new Error("HTTP " + r.status), { status: r.status }); return r.json(); })
+    .then((s) => { S = s; currentGenerated = s.generated; applyStats(true); })
+    .catch((err) => {
+      if (err.status === 401) showTokenPanel();
+      else showLoadError(err);
+    });
+}
+
+function poll() {
+  if (!SETTINGS.poll) return;
+  apiFetch("./stats.json")
+    .then((r) => { if (r.status === 401) { const e = new Error("unauthorized"); e.status = 401; throw e; } if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then((s) => {
+      const changed = s.generated !== currentGenerated;
+      currentGenerated = s.generated;
+      S = s;
+      if (changed) applyStats(false);
+      setLive("live");
+    })
+    .catch((err) => {
+      if (err.status === 401) { setLive("offline"); showTokenPanel(); return; }
+      setLive("offline");
+    })
+    .finally(schedulePoll);
+}
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  if (!SETTINGS.poll) return;
+  pollTimer = setTimeout(poll, SETTINGS.pollInterval * 1000);
+}
+function setLive(mode) {
+  const el = $("live-badge");
+  el.hidden = false;
+  el.classList.toggle("offline", mode === "offline");
+  el.classList.toggle("paused", mode === "paused");
+  $("live-text").textContent = mode === "live" ? "LIVE" : mode === "paused" ? "PAUSED" : "OFFLINE";
+  el.setAttribute("aria-label",
+    mode === "live" ? "Live: stats auto-refresh from the local database"
+    : mode === "paused" ? "Auto-refresh is paused"
+    : "Live feed interrupted");
+}
+
+/* ================= panels ================= */
+function showTokenPanel() {
+  if ($("token-panel")) return;
+  $("panels").innerHTML = `
+    <div class="panel" id="token-panel" role="alert">
+      <h2>Authentication required</h2>
+      <p>This server wants a token. Paste it here — it is stored in this browser only.</p>
+      <div class="row">
+        <input type="password" id="token-input" aria-label="Server token" autocomplete="off">
+        <button type="button" id="token-save">Save &amp; retry</button>
+      </div>
+    </div>`;
+  $("token-save").addEventListener("click", () => {
+    SETTINGS.token = $("token-input").value.trim();
+    saveSetting("token", SETTINGS.token);
+    $("panels").innerHTML = "";
+    primeFetch();
+    if (SETTINGS.poll) { schedulePoll(); }
+  });
+}
+function showLoadError(err) {
+  $("panels").innerHTML = `
+    <div class="panel" role="alert">
+      <h2>Could not load stats.json</h2>
+      <p>${esc(err && err.message ? err.message : "unknown error")}. Run
+      <code>opencode-ledger extract</code> then <code>opencode-ledger serve</code>,
+      or try the demo: <code>opencode-ledger demo</code> — and open
+      <code>http://localhost:8765/</code></p>
+    </div>`;
+  $("generated").textContent = "failed to load";
+}
+
+/* ================= range view ================= */
+function rangeStats(all, days) {
+  let timeline = all.timeline || [];
+  if (days != null) {
+    const t = todayKey();
+    const from = new Date(t + "T00:00:00");
+    from.setDate(from.getDate() - (days - 1));
+    const fromKey = from.getFullYear() + "-" + String(from.getMonth() + 1).padStart(2, "0")
+      + "-" + String(from.getDate()).padStart(2, "0");
+    timeline = timeline.filter((d) => d.date >= fromKey && d.date <= t);
+  }
+  const totals = { all: 0, input: 0, output: 0, reasoning: 0, cache_read: 0, cache_write: 0, messages: 0, cost: 0, est_cost: 0 };
+  for (const d of timeline) {
+    totals.all += d.tokens || 0;
+    totals.messages += d.messages || 0;
+    totals.input += d.input || 0;
+    totals.output += d.output || 0;
+    totals.reasoning += d.reasoning || 0;
+    totals.cache_read += d.cache_read || 0;
+    totals.cache_write += d.cache_write || 0;
+    totals.cost += d.cost || 0;
+    totals.est_cost += d.est_cost || 0;
+  }
+  totals.est_cost = totals.est_cost > 0 ? totals.est_cost : null;
+
+  let models;
+  if (days == null) {
+    models = (all.by_model || []).map((m) => ({ ...m }));
+  } else {
+    const map = new Map();
+    const keys = new Set(timeline.map((d) => d.date));
+    for (const row of all.daily_models || []) {
+      if (!keys.has(row.date)) continue;
+      const k = row.provider + "|" + row.model + "|" + (row.variant || "");
+      if (!map.has(k)) map.set(k, { provider: row.provider, model: row.model, variant: row.variant, messages: 0, tokens: 0, cost: 0, est_cost: 0, priced: false });
+      const m = map.get(k);
+      m.messages += row.messages || 0;
+      m.tokens += row.tokens || 0;
+      m.cost += row.cost || 0;
+      m.est_cost += row.est_cost || 0;
+      m.priced = m.priced || !!row.priced;
+    }
+    models = [...map.values()].map((m) => ({ ...m, est_cost: m.priced ? m.est_cost : null }));
+  }
+  models.sort((a, b) => b.tokens - a.tokens);
+
+  const best = timeline.reduce((acc, d) => (d.tokens > (acc ? acc.tokens : 0) ? d : acc), null);
+  return { timeline, totals, models, days: timeline.length, best_day: best };
+}
+
+/* ================= chart ================= */
+function barChart(containerId, tableId, rows, labelKey) {
+  const container = $(containerId);
+  const tb = $(tableId).querySelector("tbody");
+  tb.innerHTML = "";
+  if (!rows.length) {
+    container.innerHTML = '<p class="empty">No activity in this range.</p>';
+    return;
+  }
+  const W = 560, H = 180, pad = 30;
+  const max = Math.max(...rows.map((r) => r.tokens || 0), 1);
+  const bw = Math.min((W - pad) / rows.length, 56);
+  const groupW = bw * rows.length;
+  const x0 = pad + Math.max(0, (W - pad - groupW) / 2);
+  let bars = "", labels = "", trows = "";
+  const step = rows.length <= 31 ? 1 : Math.ceil(rows.length / 8);
+  rows.forEach((r, i) => {
+    const hgt = Math.max(1, ((r.tokens || 0) / max) * (H - pad - 18));
+    const x = x0 + i * bw;
+    const y = H - pad - hgt;
+    bars += `<rect class="bar-d" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw - 1.5).toFixed(1)}" height="${hgt.toFixed(1)}"><title>${esc(r[labelKey])}: ${exact(r.tokens)} tokens (${exact(r.messages)} msgs)</title></rect>`;
+    trows += `<tr><td>${esc(r[labelKey])}</td><td class="num">${exact(r.tokens)}</td></tr>`;
+    if (i % step === 0) {
+      labels += `<text class="axis" x="${(x + bw / 2).toFixed(1)}" y="${H - pad + 12}" text-anchor="middle">${esc(String(r[labelKey]).slice(labelKey === "month" ? 0 : 5))}</text>`;
+    }
+  });
+  const grid = `<line class="gridline" x1="${pad}" y1="${H - pad - (H - pad - 18)}" x2="${W}" y2="${H - pad - (H - pad - 18)}"/>`;
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${grid}<line x1="${pad}" y1="${H - pad}" x2="${W}" y2="${H - pad}" stroke="currentColor" stroke-width="1"/>${bars}${labels}<text class="axis" x="2" y="12" text-anchor="start">${fmt(max)}</text></svg>`;
+  tb.innerHTML = trows;
+}
+
+/* ================= renderers ================= */
+function odometer(total, animate) {
+  const el = $("odometer");
+  const render = (n) => { el.innerHTML = exact(Math.round(n)).replace(/,/g, '<span class="comma">,</span>'); };
+  $("odometer-sr").textContent = `Total tokens: ${exact(total)}`;
+  if (!animate || REDUCED() || !SETTINGS.motion) { render(total); lastTotal = total; return; }
+  const from = lastTotal, dur = 1400, t0 = performance.now();
+  const ease = (t) => 1 - Math.pow(1 - t, 4);
+  function frame(t) {
+    const p = Math.min((t - t0) / dur, 1);
+    render(from + (total - from) * ease(p));
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  lastTotal = total;
+}
+
+function equivalenceEl(total) {
+  const chars = total * 4;
+  const books = Math.round(total / 1_080_000);
+  return `≈ <b>${fmt(chars)}</b> characters of text · enough to read the entire Harry Potter series <b>${exact(books)}×</b>`;
+}
+
+function statCard(label, value, sub, title) {
+  return `<div><dt>${esc(label)}</dt><dd title="${esc(title || value)}">${esc(value)}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</dd></div>`;
+}
+
+function renderStats(view, all) {
+  const t = view.totals;
+  const cacheHit = (t.cache_read + t.input) > 0
+    ? (t.cache_read / (t.cache_read + t.input + t.cache_write)) * 100 : null;
+  const avg = t.messages > 0 ? Math.round(t.all / t.messages) : 0;
+  const rangeLabel = RANGES.find((r) => r.id === SETTINGS.range) || RANGES[4];
+  $("stats").innerHTML =
+    statCard("Tokens (" + rangeLabel.label.toLowerCase() + ")", exact(t.all)) +
+    statCard("Messages", exact(t.messages)) +
+    statCard("Active days", exact(view.days)) +
+    statCard("Best day", view.best_day ? fmt(view.best_day.tokens) + " tok" : "—",
+             view.best_day ? view.best_day.date : "") +
+    statCard("Reported cost", money(t.cost), t.cost === 0 ? "free-tier / not reported" : "") +
+    statCard("Est. retail cost", money(t.est_cost), t.est_cost == null ? "no priced usage in range" : "at list prices") +
+    statCard("Cache hit rate", cacheHit == null ? "—" : cacheHit.toFixed(1) + "%") +
+    statCard("Avg per message", avg ? fmt(avg) + " tok" : "—") +
+    statCard("Sessions (all time)", exact((all.totals || {}).sessions || 0)) +
+    statCard("Days active (all time)", exact(all.days_active || 0)) +
+    statCard("First message", fmtDate(all.first_message)) +
+    statCard("Models used", exact((all.by_model || []).length));
+}
+
+function renderSplit(view) {
+  const t = view.totals;
+  const parts = [
+    { label: "Cache read", v: t.cache_read, color: "var(--line)" },
+    { label: "Input", v: t.input, color: "var(--ink)" },
+    { label: "Output", v: t.output, color: "var(--accent)" },
+    { label: "Reasoning", v: t.reasoning, color: "var(--ink-2)" },
+    { label: "Cache write", v: t.cache_write, color: "var(--ink-3)" },
+  ].filter((p) => p.v > 0);
+  $("split-hint").textContent = (RANGES.find((r) => r.id === SETTINGS.range) || {}).label || "";
+  if (!parts.length || !t.all) {
+    $("stack").innerHTML = "";
+    $("legend").innerHTML = '<li class="empty">No tokens in this range.</li>';
+    return;
+  }
+  $("stack").innerHTML = parts.map((p) =>
+    `<span style="width:${((p.v / t.all) * 100).toFixed(3)}%;background:${p.color}" title="${p.label}: ${exact(p.v)}"></span>`).join("");
+  $("legend").innerHTML = parts.map((p) =>
+    `<li><span class="sw" style="background:${p.color}" aria-hidden="true"></span>${p.label} · <b>${fmt(p.v)}</b> (${((p.v / t.all) * 100).toFixed(1)}%)</li>`).join("");
+  $("stack").setAttribute("aria-label", parts.map((p) => `${p.label} ${((p.v / t.all) * 100).toFixed(1)}%`).join(", "));
+}
+
+function renderModels(view) {
+  const models = view.models;
+  $("models-hint").textContent = (RANGES.find((r) => r.id === SETTINGS.range) || {}).label || "";
+  const tbody = $("models-table").querySelector("tbody");
+  if (!models.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No models in this range.</td></tr>';
+    return;
+  }
+  const total = view.totals.all || 1;
+  const max = Math.max(...models.map((m) => m.tokens), 1);
+  tbody.innerHTML = models.map((m) => {
+    const pct = (m.tokens / total) * 100;
+    const barW = Math.max(1, (m.tokens / max) * 110);
+    return `<tr>
+      <td><span class="model-name">${esc(m.model)}</span>${m.variant ? ` <span class="model-prov">· ${esc(m.variant)}</span>` : ""}</td>
+      <td class="model-prov">${esc(m.provider)}</td>
+      <td class="num">${exact(m.messages)}</td>
+      <td class="num" title="${exact(m.tokens)}">${fmt(m.tokens)}</td>
+      <td class="num" title="${m.est_cost == null ? "no list price for this model" : "estimated at list prices"}">${money(m.est_cost)}</td>
+      <td><span class="bar-cell"><span class="bar" style="width:${barW.toFixed(1)}px" aria-hidden="true"></span>${pct.toFixed(1)}%</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function renderProviders(view) {
+  $("providers-hint").textContent = (RANGES.find((r) => r.id === SETTINGS.range) || {}).label || "";
+  const tbody = $("providers-table").querySelector("tbody");
+  const by = new Map();
+  for (const m of view.models) {
+    const p = by.get(m.provider) || { provider: m.provider, messages: 0, tokens: 0 };
+    p.messages += m.messages || 0;
+    p.tokens += m.tokens || 0;
+    by.set(m.provider, p);
+  }
+  const rows = [...by.values()].sort((a, b) => b.tokens - a.tokens);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">No providers in this range.</td></tr>';
+    return;
+  }
+  const total = view.totals.all || 1;
+  const max = Math.max(...rows.map((r) => r.tokens), 1);
+  tbody.innerHTML = rows.map((p) => `<tr>
+    <td>${esc(p.provider)}</td>
+    <td class="num">${exact(p.messages)}</td>
+    <td class="num" title="${exact(p.tokens)}">${fmt(p.tokens)}</td>
+    <td><span class="bar-cell"><span class="bar" style="width:${Math.max(1, (p.tokens / max) * 110).toFixed(1)}px" aria-hidden="true"></span>${((p.tokens / total) * 100).toFixed(1)}%</span></td>
+  </tr>`).join("");
+}
+
+function renderBudgets(all) {
+  const rows = all.budget_status || [];
+  const section = $("budget-section");
+  section.hidden = rows.length === 0;
+  $("budgets").innerHTML = rows.map((b) => {
+    const pct = Math.round(b.ratio * 100);
+    const cls = b.ratio >= 1 ? "over" : b.ratio >= 0.8 ? "warn" : "";
+    const unit = b.unit === "usd" ? "$" : "";
+    const fmtN = (v) => b.unit === "usd" ? Number(v).toFixed(2) : exact(Math.round(v));
+    return `<div class="budget ${cls}">
+      <div class="budget-head">
+        <span class="budget-name">${esc(b.id.replace(/_/g, " "))}${b.period === "day" ? " · today" : " · this month"}</span>
+        <span class="budget-figures">${unit}${fmtN(b.used)} / ${unit}${fmtN(b.limit)} · ${pct}%</span>
+      </div>
+      <div class="budget-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(pct, 100)}" aria-label="${esc(b.id)} budget">
+        <div class="budget-fill" style="width:${Math.min(100, pct)}%"></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function renderHeatmap(all) {
+  const grid = all.heatmap || Array.from({ length: 7 }, () => Array(24).fill(0));
+  const max = Math.max(...grid.flat(), 1);
+  const el = $("heatmap");
+  let html = '<span class="hm-label"></span>';
+  for (let h = 0; h < 24; h++) {
+    html += `<span class="hm-label" style="text-align:center">${h % 3 === 0 ? h : ""}</span>`;
+  }
+  let totals = 0;
+  grid.forEach((row, d) => {
+    const dayTotal = row.reduce((a, b) => a + b, 0);
+    totals += dayTotal;
+    html += `<span class="hm-label">${WEEKDAYS[d]}</span>`;
+    row.forEach((v, h) => {
+      const l = v === 0 ? 0 : Math.max(1, Math.min(5, Math.ceil((v / max) * 5)));
+      html += `<span class="hm-cell" data-l="${l}" title="${WEEKDAYS[d]} ${String(h).padStart(2, "0")}:00 — ${exact(v)} tokens"></span>`;
+    });
+  });
+  el.innerHTML = html;
+  el.setAttribute("aria-label", `Activity heatmap: ${exact(totals)} tokens by weekday and hour of day`);
+  $("heatmap-table").querySelector("tbody").innerHTML = grid.map((row, d) =>
+    `<tr><td>${WEEKDAYS[d]}</td><td class="num">${exact(row.reduce((a, b) => a + b, 0))}</td></tr>`).join("");
+}
+
+function renderProjects(all) {
+  const rows = all.by_project || [];
+  const tbody = $("projects-table").querySelector("tbody");
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No project data yet.</td></tr>';
+    return;
+  }
+  const max = Math.max(...rows.map((r) => r.tokens), 1);
+  tbody.innerHTML = rows.map((p) => `<tr>
+    <td>${esc(p.project)}</td>
+    <td class="num">${exact(p.sessions)}</td>
+    <td class="num">${exact(p.messages)}</td>
+    <td class="num" title="${exact(p.tokens)}">${fmt(p.tokens)}<span class="bar" style="width:${Math.max(1, (p.tokens / max) * 80).toFixed(1)}px;display:inline-block;margin-left:.5rem" aria-hidden="true"></span></td>
+    <td class="num">${money(p.est_cost)}</td>
+  </tr>`).join("");
+}
+
+function renderAgents(all) {
+  const rows = all.by_agent || [];
+  const tbody = $("agents-table").querySelector("tbody");
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">No agent data yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((a) => `<tr>
+    <td>${esc(a.agent)}</td>
+    <td class="num">${exact(a.messages)}</td>
+    <td class="num" title="${exact(a.tokens)}">${fmt(a.tokens)}</td>
+  </tr>`).join("");
+}
+
+function renderSessions(all) {
+  const rows = all.sessions_top || [];
+  if (!rows.length) {
+    $("sessions").innerHTML = '<p class="empty">No sessions recorded yet.</p>';
+    return;
+  }
+  $("sessions").innerHTML = rows.map((s) => {
+    const meta = [s.project, s.provider ? s.provider + "/" + s.model : s.model,
+      exact(s.messages) + " messages",
+      s.duration_min != null ? s.duration_min + " min" : null,
+      s.created ? fmtDate(s.created) : null].filter(Boolean).join(" · ");
+    const cost = s.est_cost != null ? "≈" + money(s.est_cost)
+      : (s.cost ? money(s.cost) : "");
+    return `<div class="session-row">
+      <span><span class="session-title">${esc(s.title)}</span><span class="session-meta">${esc(meta)}</span></span>
+      <span class="session-tok">${exact(s.tokens)} tok${cost ? `<span class="sub">${esc(cost)} est.</span>` : ""}</span>
+    </div>`;
+  }).join("");
+}
+
+function renderRangeChips() {
+  $("range-chips").innerHTML = RANGES.map((r) =>
+    `<button type="button" data-range="${r.id}" aria-pressed="${r.id === SETTINGS.range}">${r.label}</button>`).join("");
+  $("range-chips").querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      SETTINGS.range = btn.dataset.range;
+      saveSetting("range", SETTINGS.range);
+      if (S) { applyStats(false); renderRangeChips(); }
+    });
+  });
+}
+
+function applyStats(initial) {
+  if (!S) return;
+  const all = S;
+  const t = (all.totals || {});
+  $("generated").textContent = `data as of ${fmtDate(all.generated)} · ${exact(t.messages)} messages · ${exact(t.sessions)} sessions`;
+  $("about-version").textContent = `opencode-ledger v${all.version || "?"} · schema ${all.schema || "?"}`;
+  $("about-block").textContent = `Version ${all.version || "?"} · schema ${all.schema || "?"} · db: ${all.db_path || "?"} · generated ${all.generated || "?"}`;
+
+  if (!t.all) {
+    $("panels").innerHTML = '<div class="panel"><h2>No tokens yet</h2><p>stats.json loaded but contains zero tokens. Use OpenCode, then run <code>opencode-ledger extract</code>.</p></div>';
+    return;
+  }
+  const days = (RANGES.find((r) => r.id === SETTINGS.range) || RANGES[4]).days;
+  const view = rangeStats(all, days);
+
+  $("hero-kicker").textContent = days == null
+    ? "Total tokens consumed, all models, all time"
+    : `Tokens consumed · last ${(RANGES.find((r) => r.id === SETTINGS.range) || {}).label}`;
+  odometer(view.totals.all, initial || days == null);
+  $("equivalence").innerHTML = equivalenceEl(view.totals.all);
+
+  renderStats(view, all);
+  renderBudgets(all);
+  renderSplit(view);
+  renderModels(view);
+  renderProviders(view);
+  barChart("daily-chart", "daily-table", view.timeline.slice(-90), "date");
+  barChart("monthly-chart", "monthly-table", (all.monthly || []).slice(-24), "month");
+  renderHeatmap(all);
+  renderProjects(all);
+  renderAgents(all);
+  renderSessions(all);
+}
+
+/* ================= settings UI ================= */
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", SETTINGS.theme);
+}
+function openSettings() {
+  $("set-theme").value = SETTINGS.theme;
+  $("set-motion").checked = SETTINGS.motion;
+  $("set-poll").checked = SETTINGS.poll;
+  $("set-poll-interval").value = SETTINGS.pollInterval;
+  $("set-token").value = SETTINGS.token;
+  $("settings-dialog").showModal();
+}
+function wireSettings() {
+  $("settings-btn").addEventListener("click", openSettings);
+  $("settings-close").addEventListener("click", () => $("settings-dialog").close());
+  $("set-theme").addEventListener("change", (e) => {
+    SETTINGS.theme = e.target.value;
+    saveSetting("theme", SETTINGS.theme);
+    applyTheme();
+  });
+  $("set-motion").addEventListener("change", (e) => {
+    SETTINGS.motion = e.target.checked;
+    saveSetting("motion", SETTINGS.motion ? "1" : "0");
+  });
+  $("set-poll").addEventListener("change", (e) => {
+    SETTINGS.poll = e.target.checked;
+    saveSetting("poll", SETTINGS.poll ? "1" : "0");
+    if (SETTINGS.poll) { setLive("live"); poll(); } else { clearTimeout(pollTimer); setLive("paused"); }
+  });
+  $("set-poll-interval").addEventListener("change", (e) => {
+    SETTINGS.pollInterval = Math.max(2, Math.min(3600, parseInt(e.target.value, 10) || 4));
+    e.target.value = SETTINGS.pollInterval;
+    saveSetting("poll_interval", SETTINGS.pollInterval);
+    if (SETTINGS.poll) { schedulePoll(); }
+  });
+  $("set-token-save").addEventListener("click", () => {
+    SETTINGS.token = $("set-token").value.trim();
+    saveSetting("token", SETTINGS.token);
+    if (SETTINGS.token) { primeFetch(); if (SETTINGS.poll) poll(); }
+    $("settings-note").textContent = "Token saved.";
+  });
+  $("set-token-clear").addEventListener("click", () => {
+    SETTINGS.token = "";
+    localStorage.removeItem("ledger_token");
+    $("set-token").value = "";
+    $("settings-note").textContent = "Token cleared.";
+  });
+  $("export-csv").addEventListener("click", () => downloadViaApi("./api/export.csv", "opencode-ledger-daily.csv"));
+  $("export-json").addEventListener("click", () => downloadViaApi("./stats.json", "opencode-ledger-stats.json"));
+  $("settings-reset").addEventListener("click", () => {
+    ["ledger_theme", "ledger_range", "ledger_poll", "ledger_poll_interval",
+     "ledger_motion", "ledger_token"].forEach((k) => localStorage.removeItem(k));
+    location.reload();
+  });
+}
+function downloadViaApi(path, filename) {
+  apiFetch(path)
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    })
+    .catch((err) => {
+      $("settings-note").textContent = "Export failed: " + err.message;
+    });
+}
+
+/* ================= boot ================= */
+applyTheme();
+renderRangeChips();
+wireSettings();
+primeFetch();
+if (SETTINGS.poll) { setLive("live"); schedulePoll(); } else { setLive("paused"); }
+</script>
+</body>
+</html>
